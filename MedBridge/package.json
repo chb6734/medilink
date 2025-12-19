@@ -5,10 +5,11 @@
     "apps/*",
     "packages/*"
   ],
+  "packageManager": "pnpm@9.15.0",
   "scripts": {
-    "dev": "npm run dev -w apps/web",
-    "build": "npm run build -w apps/web",
-    "dev:api": "npm run dev -w apps/api",
+    "dev": "pnpm -C apps/web dev",
+    "build": "pnpm -C apps/web build",
+    "dev:api": "pnpm -C apps/api dev",
     "lint": "echo \"(todo)\""
   }
 }
