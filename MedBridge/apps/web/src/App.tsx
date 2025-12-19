@@ -38,6 +38,7 @@ export interface PrescriptionRecord {
 export interface QuestionnaireData {
   hospitalName: string;
   chiefComplaint: string;
+  symptomDetail?: string;
   symptomStart: string;
   symptomProgress: string;
   medicationCompliance: string;

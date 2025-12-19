@@ -36,7 +36,9 @@ app.get("/health", async () => ({ ok: true }));
 
 function ensureDbConfigured(reply: any) {
   if (!process.env.DATABASE_URL) {
-    reply.code(503).send({ error: "db_not_configured", hint: "Set DATABASE_URL" });
+    reply
+      .code(503)
+      .send({ error: "db_not_configured", hint: "Set DATABASE_URL" });
     return false;
   }
   return true;
@@ -103,7 +105,9 @@ app.post("/api/records", async (req, reply) => {
       patientId: z.string().uuid(),
       recordType: z.enum(["dispensing_record", "prescription"]),
       facilityName: z.string().min(1).max(200).optional(),
-      facilityType: z.enum(["clinic", "hospital", "pharmacy", "unknown"]).optional(),
+      facilityType: z
+        .enum(["clinic", "hospital", "pharmacy", "unknown"])
+        .optional(),
       chiefComplaint: z.string().max(200).optional(),
       doctorDiagnosis: z.string().max(200).optional(),
       noteDoctorSaid: z.string().max(500).optional(),
@@ -113,7 +117,9 @@ app.post("/api/records", async (req, reply) => {
     .safeParse(req.query);
 
   if (!meta.success) {
-    return reply.code(400).send({ error: "invalid_meta", details: meta.error.flatten() });
+    return reply
+      .code(400)
+      .send({ error: "invalid_meta", details: meta.error.flatten() });
   }
 
   const buf = await file.toBuffer();
@@ -157,8 +163,12 @@ app.post("/api/records", async (req, reply) => {
       chiefComplaint: meta.data.chiefComplaint,
       doctorDiagnosis: meta.data.doctorDiagnosis,
       noteDoctorSaid: meta.data.noteDoctorSaid,
-      prescribedAt: meta.data.prescribedAt ? new Date(meta.data.prescribedAt) : undefined,
-      dispensedAt: meta.data.dispensedAt ? new Date(meta.data.dispensedAt) : undefined,
+      prescribedAt: meta.data.prescribedAt
+        ? new Date(meta.data.prescribedAt)
+        : undefined,
+      dispensedAt: meta.data.dispensedAt
+        ? new Date(meta.data.dispensedAt)
+        : undefined,
       ocrExtraction: {
         create: {
           rawText: text,
@@ -191,7 +201,9 @@ app.post("/api/share-tokens", async (req, reply) => {
     .safeParse(req.body);
 
   if (!body.success) {
-    return reply.code(400).send({ error: "invalid_body", details: body.error.flatten() });
+    return reply
+      .code(400)
+      .send({ error: "invalid_body", details: body.error.flatten() });
   }
 
   const token = randomToken(32);
@@ -235,15 +247,19 @@ app.get("/share/:token", async (req, reply) => {
     },
   });
 
-  if (!share || share.revokedAt) return reply.code(404).send({ error: "not_found" });
-  if (share.expiresAt.getTime() <= Date.now()) return reply.code(410).send({ error: "expired" });
+  if (!share || share.revokedAt)
+    return reply.code(404).send({ error: "not_found" });
+  if (share.expiresAt.getTime() <= Date.now())
+    return reply.code(410).send({ error: "expired" });
 
   // Minimal access log (PII-minimized)
   await prisma.accessLog.create({
     data: {
       shareTokenId: share.id,
       ipHash: req.ip ? sha256Base64Url(req.ip) : undefined,
-      userAgentHash: req.headers["user-agent"] ? sha256Base64Url(String(req.headers["user-agent"])) : undefined,
+      userAgentHash: req.headers["user-agent"]
+        ? sha256Base64Url(String(req.headers["user-agent"]))
+        : undefined,
     },
   });
 
@@ -264,13 +280,15 @@ app.get("/share/:token", async (req, reply) => {
       chiefComplaint: r.chiefComplaint,
       doctorDiagnosis: r.doctorDiagnosis,
       noteDoctorSaid: r.noteDoctorSaid,
-      meds: r.medItems.map((m) => ({ nameRaw: m.nameRaw, needsVerification: m.needsVerification })),
-      geminiSummary: (r.ocrExtraction?.fieldsJson as any)?.geminiSummary ?? null,
+      meds: r.medItems.map((m) => ({
+        nameRaw: m.nameRaw,
+        needsVerification: m.needsVerification,
+      })),
+      geminiSummary:
+        (r.ocrExtraction?.fieldsJson as any)?.geminiSummary ?? null,
       rawText: r.ocrExtraction?.rawText ?? null,
     })),
   };
 });
 
 await app.listen({ port: PORT, host: HOST });
-
-

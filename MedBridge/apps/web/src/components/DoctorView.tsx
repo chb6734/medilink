@@ -152,6 +152,9 @@ export function DoctorView({ records, questionnaireData }: DoctorViewProps) {
               <div className="space-y-3" style={{ fontSize: '0.9375rem' }}>
                 <InfoRow label="증상 시작" value={questionnaireData.symptomStart} />
                 <InfoRow label="증상 경과" value={questionnaireData.symptomProgress} />
+                {questionnaireData.symptomDetail && questionnaireData.symptomDetail.trim().length > 0 && (
+                  <InfoRow label="증상 상세" value={questionnaireData.symptomDetail} />
+                )}
               </div>
             </SummaryCard>
           )}
