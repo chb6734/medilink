@@ -69,7 +69,19 @@ app.post("/api/records/preview-ocr", async (req, reply) => {
   if (!file) return reply.code(400).send({ error: "file_required" });
 
   const buf = await file.toBuffer();
-  const { text, overallConfidence } = await ocrTextFromImageBytes(buf);
+  let text = "";
+  let overallConfidence: number | null = null;
+  try {
+    const r = await ocrTextFromImageBytes(buf);
+    text = r.text;
+    overallConfidence = r.overallConfidence;
+  } catch (e) {
+    return reply.code(503).send({
+      error: "ocr_unavailable",
+      hint: "Configure Google Cloud Vision credentials (ADC / GOOGLE_APPLICATION_CREDENTIALS).",
+      details: String((e as any)?.message ?? e),
+    });
+  }
   const meds = parseMedCandidates(text);
 
   return {
@@ -105,7 +117,17 @@ app.post("/api/records", async (req, reply) => {
   }
 
   const buf = await file.toBuffer();
-  const { text } = await ocrTextFromImageBytes(buf);
+  let text = "";
+  try {
+    const r = await ocrTextFromImageBytes(buf);
+    text = r.text;
+  } catch (e) {
+    return reply.code(503).send({
+      error: "ocr_unavailable",
+      hint: "Configure Google Cloud Vision credentials (ADC / GOOGLE_APPLICATION_CREDENTIALS).",
+      details: String((e as any)?.message ?? e),
+    });
+  }
 
   const meds = parseMedCandidates(text);
   const geminiSummary = await summarizeForClinician(text);
