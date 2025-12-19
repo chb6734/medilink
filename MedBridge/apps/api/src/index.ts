@@ -34,6 +34,14 @@ await app.register(multipart, {
 
 app.get("/health", async () => ({ ok: true }));
 
+function ensureDbConfigured(reply: any) {
+  if (!process.env.DATABASE_URL) {
+    reply.code(503).send({ error: "db_not_configured", hint: "Set DATABASE_URL" });
+    return false;
+  }
+  return true;
+}
+
 function parseMedCandidates(text: string) {
   // MVP heuristic: extract non-empty lines, de-dup, cap to 30.
   // We keep OCR raw; proper normalization comes later.
@@ -73,6 +81,7 @@ app.post("/api/records/preview-ocr", async (req, reply) => {
 
 // Create record with OCR + DB write (no image storage)
 app.post("/api/records", async (req, reply) => {
+  if (!ensureDbConfigured(reply)) return;
   const file = await req.file();
   if (!file) return reply.code(400).send({ error: "file_required" });
 
@@ -151,6 +160,7 @@ app.post("/api/records", async (req, reply) => {
 
 // Create share token (TTL 10min) - patient-only re-issue should revoke prior tokens
 app.post("/api/share-tokens", async (req, reply) => {
+  if (!ensureDbConfigured(reply)) return;
   const body = z
     .object({
       patientId: z.string().uuid(),
@@ -190,6 +200,7 @@ app.post("/api/share-tokens", async (req, reply) => {
 
 // Clinician viewer (no login) - TTL within re-open allowed
 app.get("/share/:token", async (req, reply) => {
+  if (!ensureDbConfigured(reply)) return;
   const params = z.object({ token: z.string().min(10) }).safeParse(req.params);
   if (!params.success) return reply.code(400).send({ error: "invalid_token" });
 
