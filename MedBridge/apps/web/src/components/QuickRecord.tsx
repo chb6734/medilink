@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { ArrowLeft, Camera, AlertCircle, CheckCircle } from 'lucide-react';
 import { PrescriptionRecord, Medication } from '../App';
+import { previewOcr, createRecord } from '../lib/api';
+import { getOrCreatePatientId } from '../lib/patient';
 
 interface QuickRecordProps {
   onBack: () => void;
@@ -12,11 +14,11 @@ interface OCRResult {
     name: string;
     dosage: string;
     frequency: string;
-    confidence: number;
+    confidence: number | null;
   }>;
   prescriptionDate?: string;
   pharmacyName?: string;
-  confidence: number;
+  confidence: number | null;
 }
 
 export function QuickRecord({ onBack, onRecordSaved }: QuickRecordProps) {
@@ -26,36 +28,48 @@ export function QuickRecord({ onBack, onRecordSaved }: QuickRecordProps) {
   const [hospitalName, setHospitalName] = useState('');
   const [pharmacyName, setPharmacyName] = useState('');
   const [symptom, setSymptom] = useState('');
+  const [file, setFile] = useState<File | null>(null);
 
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
+      setFile(file);
       const reader = new FileReader();
       reader.onloadend = () => {
         setImagePreview(reader.result as string);
-        setStep('analyzing');
-        
-        setTimeout(() => {
-          const mockOCR: OCRResult = {
-            medications: [
-              { name: '아모시실린', dosage: '250mg', frequency: '1일 3회 식후', confidence: 92 },
-              { name: '타이레놀정', dosage: '500mg', frequency: '1일 2회', confidence: 88 },
-              { name: '겔포스엠정', dosage: '1정', frequency: '1일 3회 식후', confidence: 76 },
-            ],
-            prescriptionDate: new Date().toISOString().split('T')[0],
-            pharmacyName: '서울온누리약국',
-            confidence: 85
-          };
-          setOcrResult(mockOCR);
-          setPharmacyName(mockOCR.pharmacyName || '');
-          setStep('review');
-        }, 2000);
       };
       reader.readAsDataURL(file);
+
+      setStep('analyzing');
+      try {
+        const preview = await previewOcr(file);
+        const meds = preview.meds.map((m) => ({
+          name: m.nameRaw,
+          dosage: '',
+          frequency: '',
+          confidence: m.confidence,
+        }));
+        const result: OCRResult = {
+          medications: meds,
+          prescriptionDate: new Date().toISOString().split('T')[0],
+          confidence: preview.overallConfidence,
+        };
+        setOcrResult(result);
+        setStep('review');
+      } catch (e) {
+        // fallback to allow UX test even if API isn't configured
+        const mockOCR: OCRResult = {
+          medications: [{ name: '분석 실패(테스트)', dosage: '', frequency: '', confidence: null }],
+          prescriptionDate: new Date().toISOString().split('T')[0],
+          confidence: null,
+        };
+        setOcrResult(mockOCR);
+        setStep('review');
+      }
     }
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!ocrResult) return;
 
     const medications: Medication[] = ocrResult.medications.map((med, idx) => ({
@@ -65,7 +79,7 @@ export function QuickRecord({ onBack, onRecordSaved }: QuickRecordProps) {
       frequency: med.frequency,
       startDate: ocrResult.prescriptionDate || new Date().toISOString().split('T')[0],
       prescribedBy: hospitalName || pharmacyName || '미입력',
-      confidence: med.confidence
+      confidence: med.confidence ?? undefined
     }));
 
     const record: PrescriptionRecord = {
@@ -76,8 +90,25 @@ export function QuickRecord({ onBack, onRecordSaved }: QuickRecordProps) {
       chiefComplaint: symptom || undefined,
       prescriptionDate: ocrResult.prescriptionDate || new Date().toISOString().split('T')[0],
       imageUrl: imagePreview || undefined,
-      ocrConfidence: ocrResult.confidence
+      ocrConfidence: ocrResult.confidence ?? undefined
     };
+
+    // Persist on server (optional in local dev)
+    if (file) {
+      try {
+        await createRecord({
+          patientId: getOrCreatePatientId(),
+          recordType: "dispensing_record",
+          file,
+          chiefComplaint: symptom || undefined,
+          facilityName: hospitalName || pharmacyName || undefined,
+          facilityType: pharmacyName ? "pharmacy" : "unknown",
+          noteDoctorSaid: undefined,
+        });
+      } catch {
+        // ignore; UI still proceeds
+      }
+    }
 
     onRecordSaved(record);
   };
@@ -189,14 +220,14 @@ export function QuickRecord({ onBack, onRecordSaved }: QuickRecordProps) {
                   fontWeight: '700',
                   marginBottom: '2px'
                 }}>
-                  분석 정확도 {ocrResult.confidence}%
+              분석 정확도 {ocrResult.confidence ?? 0}%
                 </p>
                 <p style={{
                   fontSize: '0.875rem',
                   color: ocrResult.confidence >= 80 ? '#065F46' : '#92400E',
                   opacity: 0.8
                 }}>
-                  {ocrResult.confidence >= 80 ? '정확도가 높아요' : '일부 항목을 확인해주세요'}
+                  {(ocrResult.confidence ?? 0) >= 80 ? '정확도가 높아요' : '일부 항목을 확인해주세요'}
                 </p>
               </div>
             </div>

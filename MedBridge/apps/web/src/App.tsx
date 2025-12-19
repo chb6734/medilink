@@ -5,7 +5,10 @@ import { FirstResult } from './components/FirstResult';
 import { Questionnaire } from './components/Questionnaire';
 import { ShareView } from './components/ShareView';
 import { DoctorView } from './components/DoctorView';
+import { DoctorShare } from './components/DoctorShare';
 import { MedicationHistory } from './components/MedicationHistory';
+import { getOrCreatePatientId } from './lib/patient';
+import { createShareToken } from './lib/api';
 
 export type ViewType = 'home' | 'quick-record' | 'first-result' | 'questionnaire' | 'share' | 'doctor' | 'history';
 
@@ -49,6 +52,19 @@ export default function App() {
   const [questionnaireData, setQuestionnaireData] = useState<QuestionnaireData | null>(null);
   const [shareToken, setShareToken] = useState<string | null>(null);
   const [latestRecord, setLatestRecord] = useState<PrescriptionRecord | null>(null);
+  const [doctorToken, setDoctorToken] = useState<string | null>(null);
+
+  const patientId = getOrCreatePatientId();
+
+  // Hash route: #/doctor/<token>
+  if (!doctorToken) {
+    const hash = window.location.hash || "";
+    const m = hash.match(/^#\/doctor\/(.+)$/);
+    if (m?.[1]) {
+      setDoctorToken(decodeURIComponent(m[1]));
+      setCurrentView("doctor");
+    }
+  }
 
   const handleAddRecord = (record: PrescriptionRecord) => {
     setPrescriptionRecords([...prescriptionRecords, record]);
@@ -56,11 +72,18 @@ export default function App() {
     setCurrentView('first-result');
   };
 
-  const handleQuestionnaireComplete = (data: QuestionnaireData) => {
+  const handleQuestionnaireComplete = async (data: QuestionnaireData) => {
     setQuestionnaireData(data);
-    const token = Math.random().toString(36).substring(2, 15);
-    setShareToken(token);
-    setCurrentView('share');
+    try {
+      const resp = await createShareToken({ patientId });
+      setShareToken(resp.token);
+      setCurrentView('share');
+    } catch (e) {
+      // fallback (offline/dev)
+      const token = Math.random().toString(36).substring(2, 15);
+      setShareToken(token);
+      setCurrentView('share');
+    }
   };
 
   const handleViewChange = (view: ViewType) => {
@@ -104,10 +127,14 @@ export default function App() {
         />
       )}
       {currentView === 'doctor' && (
-        <DoctorView 
-          records={prescriptionRecords}
-          questionnaireData={questionnaireData}
-        />
+        doctorToken ? (
+          <DoctorShare token={doctorToken} />
+        ) : (
+          <DoctorView 
+            records={prescriptionRecords}
+            questionnaireData={questionnaireData}
+          />
+        )
       )}
       {currentView === 'history' && (
         <MedicationHistory 

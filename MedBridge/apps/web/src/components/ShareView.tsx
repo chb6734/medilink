@@ -172,7 +172,7 @@ export function ShareView({ token, onBack, onRegenerateToken }: ShareViewProps) 
             marginBottom: '24px'
           }}>
             <QRCodeSVG 
-              value={`https://your-app.com/doctor/${token}`}
+              value={`${window.location.origin}/#/doctor/${encodeURIComponent(token)}`}
               size={240}
               level="M"
             />
