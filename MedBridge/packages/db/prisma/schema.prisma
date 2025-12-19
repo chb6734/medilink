@@ -1,0 +1,198 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum FacilityType {
+  clinic
+  hospital
+  pharmacy
+  unknown
+}
+
+enum RecordType {
+  dispensing_record
+  prescription
+}
+
+enum CourseType {
+  improving
+  worsening
+  no_change
+  unknown
+}
+
+enum AdherenceType {
+  yes
+  partial
+  no
+  unknown
+}
+
+enum ReminderEventStatus {
+  sent
+  acknowledged
+  skipped
+}
+
+model Patient {
+  id          String   @id @default(uuid())
+  createdAt   DateTime @default(now())
+
+  // Phase 1 auth binding
+  authProvider String?
+  authSubject  String?
+
+  records      PrescriptionRecord[]
+  intakes      IntakeForm[]
+  shareTokens  ShareToken[]
+  reminders    Reminder[]
+}
+
+model Facility {
+  id        String       @id @default(uuid())
+  name      String
+  type      FacilityType @default(unknown)
+  createdAt DateTime     @default(now())
+
+  records   PrescriptionRecord[]
+  intakes   IntakeForm[]
+  shareTokens ShareToken[]
+
+  @@index([name])
+}
+
+model PrescriptionRecord {
+  id            String    @id @default(uuid())
+  patientId     String
+  patient       Patient   @relation(fields: [patientId], references: [id], onDelete: Cascade)
+
+  facilityId    String?
+  facility      Facility? @relation(fields: [facilityId], references: [id], onDelete: SetNull)
+
+  recordType    RecordType
+
+  chiefComplaint String?
+  doctorDiagnosis String?
+  noteDoctorSaid  String?
+
+  prescribedAt  DateTime?
+  dispensedAt   DateTime?
+  createdAt     DateTime @default(now())
+
+  ocrExtraction OcrExtraction?
+  medItems      MedItem[]
+
+  @@index([patientId, createdAt])
+  @@index([chiefComplaint])
+}
+
+model OcrExtraction {
+  id                   String  @id @default(uuid())
+  prescriptionRecordId String  @unique
+  prescriptionRecord   PrescriptionRecord @relation(fields: [prescriptionRecordId], references: [id], onDelete: Cascade)
+
+  rawText             String
+  fieldsJson          Json?
+  confidenceJson      Json?
+  overallConfidence   Float?
+  createdAt           DateTime @default(now())
+}
+
+model MedItem {
+  id                   String  @id @default(uuid())
+  prescriptionRecordId String
+  prescriptionRecord   PrescriptionRecord @relation(fields: [prescriptionRecordId], references: [id], onDelete: Cascade)
+
+  nameRaw             String
+  dose                String?
+  frequency           String?
+  durationDays        Int?
+  confidence          Float?
+  needsVerification   Boolean @default(false)
+
+  createdAt           DateTime @default(now())
+}
+
+model IntakeForm {
+  id          String   @id @default(uuid())
+  patientId   String
+  patient     Patient  @relation(fields: [patientId], references: [id], onDelete: Cascade)
+
+  facilityId  String?
+  facility    Facility? @relation(fields: [facilityId], references: [id], onDelete: SetNull)
+
+  chiefComplaint String
+  onsetAt        DateTime?
+  onsetText      String?
+
+  course         CourseType @default(unknown)
+  courseNote     String?
+
+  adherence      AdherenceType @default(unknown)
+  adherenceReason String?
+
+  adverseEvents  String?
+  allergies      String?
+  createdAt      DateTime @default(now())
+
+  @@index([patientId, createdAt])
+}
+
+model ShareToken {
+  id          String   @id @default(uuid())
+  patientId   String
+  patient     Patient  @relation(fields: [patientId], references: [id], onDelete: Cascade)
+
+  facilityId  String?
+  facility    Facility? @relation(fields: [facilityId], references: [id], onDelete: SetNull)
+
+  tokenHash   String   @unique
+  expiresAt   DateTime
+  revokedAt   DateTime?
+  createdAt   DateTime @default(now())
+
+  accessLogs  AccessLog[]
+
+  @@index([patientId, createdAt])
+  @@index([expiresAt])
+}
+
+model AccessLog {
+  id          String   @id @default(uuid())
+  shareTokenId String
+  shareToken   ShareToken @relation(fields: [shareTokenId], references: [id], onDelete: Cascade)
+
+  accessedAt  DateTime @default(now())
+  ipHash      String?
+  userAgentHash String?
+}
+
+model Reminder {
+  id          String   @id @default(uuid())
+  patientId   String
+  patient     Patient  @relation(fields: [patientId], references: [id], onDelete: Cascade)
+
+  medNameRaw  String
+  scheduleJson Json
+  enabled     Boolean @default(true)
+  createdAt   DateTime @default(now())
+
+  events      ReminderEvent[]
+}
+
+model ReminderEvent {
+  id          String   @id @default(uuid())
+  reminderId  String
+  reminder    Reminder @relation(fields: [reminderId], references: [id], onDelete: Cascade)
+
+  scheduledAt DateTime
+  status      ReminderEventStatus @default(sent)
+  note        String?
+}
+
+
