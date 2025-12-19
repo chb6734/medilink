@@ -1,0 +1,28 @@
+# Node / package managers
+node_modules/
+.pnpm-store/
+.pnp.*
+
+# Env / secrets
+.env
+.env.*
+
+# Builds / caches
+dist/
+build/
+.next/
+.turbo/
+.cache/
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/
+
+
