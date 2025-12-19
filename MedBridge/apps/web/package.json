@@ -1,6 +1,6 @@
 
   {
-      "name": "Responsive Web App Design",
+      "name": "@medbridge/web",
       "version": "0.1.0",
       "private": true,
       "dependencies": {
