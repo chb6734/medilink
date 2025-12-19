@@ -68,7 +68,7 @@ export function DoctorView({ records, questionnaireData }: DoctorViewProps) {
             }}>
               <AlertCircle className="w-5 h-5" style={{ color: '#92400E', flexShrink: 0 }} />
               <p style={{ color: '#92400E', fontSize: '0.9375rem' }}>
-                일부 항목은 환자와 확��이 필요합니다
+                일부 항목은 환자와 확인이 필요합니다
               </p>
             </div>
           )}
