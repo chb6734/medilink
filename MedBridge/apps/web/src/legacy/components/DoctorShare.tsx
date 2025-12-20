@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { DoctorView } from "./DoctorView";
 import type { PrescriptionRecord, QuestionnaireData } from "../App";
-import { fetchShare } from "../lib/api";
+import { fetchShare } from "@/shared/api";
 
 export function DoctorShare({ token }: { token: string }) {
   const [loading, setLoading] = useState(true);

@@ -10,7 +10,7 @@ import { DoctorView } from "./components/DoctorView";
 import { AuthView } from "./components/AuthView";
 import { MedicationHistory } from "./components/MedicationHistory";
 import { getOrCreatePatientId } from "./lib/patient";
-import { createShareToken } from "./lib/api";
+import { createShareToken } from "@/shared/api";
 
 export type ViewType =
   | "home"
@@ -131,7 +131,9 @@ export default function App() {
 
   return (
     <div className="app-container">
-      {showLogin ? <AuthView onDone={handleAuthDone} /> : (
+      {showLogin ? (
+        <AuthView onDone={handleAuthDone} />
+      ) : (
         <>
           {currentView === "home" && (
             <Home

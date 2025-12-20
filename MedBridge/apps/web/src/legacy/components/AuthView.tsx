@@ -5,7 +5,7 @@ import {
   authPhoneStart,
   authPhoneVerify,
   authLogout,
-} from "../lib/api";
+} from "@/shared/api";
 
 export function AuthView({ onDone }: { onDone: () => void }) {
   const [loading, setLoading] = useState(true);

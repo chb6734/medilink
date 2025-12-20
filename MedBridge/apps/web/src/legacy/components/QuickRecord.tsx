@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { ArrowLeft, Camera, AlertCircle, CheckCircle } from "lucide-react";
 import { PrescriptionRecord, Medication } from "../App";
-import { previewOcr, createRecord } from "../lib/api";
+import { previewOcr, createRecord } from "@/shared/api";
 import { getOrCreatePatientId } from "../lib/patient";
 
 interface QuickRecordProps {
@@ -116,7 +116,7 @@ export function QuickRecord({ onBack, onRecordSaved }: QuickRecordProps) {
         });
       } catch {
         // if auth required, redirect to login but still allow local UI flow
-        window.location.hash = "#/login";
+        window.location.href = "/login";
       }
     }
 
