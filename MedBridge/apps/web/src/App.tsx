@@ -150,9 +150,7 @@ export default function App() {
 
   return (
     <div className="app-container">
-      {route.kind === "login" && (
-        <AuthView onDone={handleAuthDone} />
-      )}
+      {route.kind === "login" && <AuthView onDone={handleAuthDone} />}
       {route.kind === "login" ? null : (
         <>
           {currentView === "home" && (
@@ -195,7 +193,9 @@ export default function App() {
                       window.location.hash = "#/login";
                       return;
                     }
-                    const newToken = Math.random().toString(36).substring(2, 15);
+                    const newToken = Math.random()
+                      .toString(36)
+                      .substring(2, 15);
                     setShareToken(newToken);
                   }
                 })();
