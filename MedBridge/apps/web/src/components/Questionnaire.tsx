@@ -115,9 +115,8 @@ export function Questionnaire({ onBack, onComplete }: QuestionnaireProps) {
     }
     if (current.kind === "symptom") {
       const chief = formData.chiefComplaint;
-      const onset = formData.symptomStart;
       return (
-        !!chief && chief.trim().length > 0 && !!onset && onset.trim().length > 0
+        !!chief && chief.trim().length > 0
       );
     }
     const value = formData[current.id as keyof QuestionnaireData];
