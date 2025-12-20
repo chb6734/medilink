@@ -89,7 +89,9 @@ export function Home({ onNavigate, onLogin, recordCount }: HomeProps) {
           }}
         >
           <button
-            onClick={() => onNavigate("quick-record")}
+            onClick={() => {
+              window.location.href = "/quick-record";
+            }}
             style={{
               background: "var(--color-surface)",
               borderRadius: "20px",
@@ -130,7 +132,9 @@ export function Home({ onNavigate, onLogin, recordCount }: HomeProps) {
           </button>
 
           <button
-            onClick={() => onNavigate("questionnaire")}
+            onClick={() => {
+              window.location.href = "/questionnaire";
+            }}
             style={{
               background: "var(--color-surface)",
               borderRadius: "20px",
