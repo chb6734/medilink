@@ -1,4 +1,5 @@
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://127.0.0.1:8787";
+const API_BASE_URL =
+  import.meta.env.VITE_API_BASE_URL ?? "http://127.0.0.1:8787";
 
 async function parseError(resp: Response) {
   const text = await resp.text();
@@ -25,7 +26,9 @@ export async function previewOcr(file: File): Promise<PreviewOcrResponse> {
 
   if (!resp.ok) {
     const err = await parseError(resp);
-    throw new Error(`preview-ocr failed: ${resp.status} ${(err as any).message}`);
+    throw new Error(
+      `preview-ocr failed: ${resp.status} ${(err as any).message}`
+    );
   }
   return await resp.json();
 }
@@ -61,12 +64,17 @@ export async function createRecord(params: {
 
   if (!resp.ok) {
     const err = await parseError(resp);
-    throw new Error(`create record failed: ${resp.status} ${(err as any).message}`);
+    throw new Error(
+      `create record failed: ${resp.status} ${(err as any).message}`
+    );
   }
   return await resp.json();
 }
 
-export async function createShareToken(params: { patientId: string; facilityId?: string }) {
+export async function createShareToken(params: {
+  patientId: string;
+  facilityId?: string;
+}) {
   const resp = await fetch(`${API_BASE_URL}/api/share-tokens`, {
     method: "POST",
     headers: { "content-type": "application/json" },
@@ -76,19 +84,26 @@ export async function createShareToken(params: { patientId: string; facilityId?:
 
   if (!resp.ok) {
     const err = await parseError(resp);
-    throw new Error(`create share token failed: ${resp.status} ${(err as any).message}`);
+    throw new Error(
+      `create share token failed: ${resp.status} ${(err as any).message}`
+    );
   }
   return await resp.json();
 }
 
 export async function fetchShare(token: string) {
-  const resp = await fetch(`${API_BASE_URL}/share/${encodeURIComponent(token)}`, {
-    method: "GET",
-    credentials: "include",
-  });
+  const resp = await fetch(
+    `${API_BASE_URL}/share/${encodeURIComponent(token)}`,
+    {
+      method: "GET",
+      credentials: "include",
+    }
+  );
   if (!resp.ok) {
     const err = await parseError(resp);
-    throw new Error(`fetch share failed: ${resp.status} ${(err as any).message}`);
+    throw new Error(
+      `fetch share failed: ${resp.status} ${(err as any).message}`
+    );
   }
   return await resp.json();
 }
@@ -133,7 +148,10 @@ export async function authPhoneStart(params: { phoneE164: string }) {
   return await resp.json();
 }
 
-export async function authPhoneVerify(params: { challengeId: string; code: string }) {
+export async function authPhoneVerify(params: {
+  challengeId: string;
+  code: string;
+}) {
   const resp = await fetch(`${API_BASE_URL}/api/auth/phone/verify`, {
     method: "POST",
     headers: { "content-type": "application/json" },
@@ -143,5 +161,3 @@ export async function authPhoneVerify(params: { challengeId: string; code: strin
   if (!resp.ok) throw await parseError(resp);
   return await resp.json();
 }
-
-

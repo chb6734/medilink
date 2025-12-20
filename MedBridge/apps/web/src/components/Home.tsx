@@ -1,4 +1,4 @@
-import { Camera, FileText, Clock, Pill, User } from 'lucide-react';
+import { Camera, FileText, Clock, Pill, User, LogIn } from 'lucide-react';
 import { ViewType } from '../App';
 
 interface HomeProps {
@@ -17,12 +17,34 @@ export function Home({ onNavigate, recordCount }: HomeProps) {
         borderBottomRightRadius: '32px',
         color: 'white'
       }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+          <div>
         <p style={{ fontSize: '0.9375rem', opacity: 0.9, marginBottom: '4px' }}>
           안녕하세요 👋
         </p>
         <h1 style={{ color: 'white', marginBottom: '24px' }}>
           연속진료
         </h1>
+          </div>
+          <button
+            onClick={() => { window.location.hash = '#/login'; }}
+            style={{
+              background: 'rgba(255,255,255,0.2)',
+              border: '1px solid rgba(255,255,255,0.25)',
+              color: 'white',
+              padding: '10px 12px',
+              borderRadius: '14px',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              fontWeight: 700,
+            }}
+          >
+            <LogIn className="w-4 h-4" />
+            로그인
+          </button>
+        </div>
         
         {/* Search/Status Bar */}
         <div style={{

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { ArrowLeft, Camera, AlertCircle, CheckCircle } from 'lucide-react';
 import { PrescriptionRecord, Medication } from '../App';
 import { previewOcr, createRecord } from '../lib/api';
@@ -106,7 +106,8 @@ export function QuickRecord({ onBack, onRecordSaved }: QuickRecordProps) {
           noteDoctorSaid: undefined,
         });
       } catch {
-        // ignore; UI still proceeds
+        // if auth required, redirect to login but still allow local UI flow
+        window.location.hash = "#/login";
       }
     }
 

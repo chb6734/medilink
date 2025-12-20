@@ -1,17 +1,24 @@
-import { useEffect, useMemo, useState } from 'react';
-import { Home } from './components/Home';
-import { QuickRecord } from './components/QuickRecord';
-import { FirstResult } from './components/FirstResult';
-import { Questionnaire } from './components/Questionnaire';
-import { ShareView } from './components/ShareView';
-import { DoctorView } from './components/DoctorView';
-import { DoctorShare } from './components/DoctorShare';
-import { AuthView } from './components/AuthView';
-import { MedicationHistory } from './components/MedicationHistory';
-import { getOrCreatePatientId } from './lib/patient';
-import { createShareToken } from './lib/api';
+import { useEffect, useMemo, useState } from "react";
+import { Home } from "./components/Home";
+import { QuickRecord } from "./components/QuickRecord";
+import { FirstResult } from "./components/FirstResult";
+import { Questionnaire } from "./components/Questionnaire";
+import { ShareView } from "./components/ShareView";
+import { DoctorView } from "./components/DoctorView";
+import { DoctorShare } from "./components/DoctorShare";
+import { AuthView } from "./components/AuthView";
+import { MedicationHistory } from "./components/MedicationHistory";
+import { getOrCreatePatientId } from "./lib/patient";
+import { createShareToken } from "./lib/api";
 
-export type ViewType = 'home' | 'quick-record' | 'first-result' | 'questionnaire' | 'share' | 'doctor' | 'history';
+export type ViewType =
+  | "home"
+  | "quick-record"
+  | "first-result"
+  | "questionnaire"
+  | "share"
+  | "doctor"
+  | "history";
 
 export interface Medication {
   id: string;
@@ -49,12 +56,18 @@ export interface QuestionnaireData {
 }
 
 export default function App() {
-  const [currentView, setCurrentView] = useState<ViewType>('home');
-  const [prescriptionRecords, setPrescriptionRecords] = useState<PrescriptionRecord[]>([]);
-  const [questionnaireData, setQuestionnaireData] = useState<QuestionnaireData | null>(null);
+  const [currentView, setCurrentView] = useState<ViewType>("home");
+  const [prescriptionRecords, setPrescriptionRecords] = useState<
+    PrescriptionRecord[]
+  >([]);
+  const [questionnaireData, setQuestionnaireData] =
+    useState<QuestionnaireData | null>(null);
   const [shareToken, setShareToken] = useState<string | null>(null);
-  const [latestRecord, setLatestRecord] = useState<PrescriptionRecord | null>(null);
+  const [latestRecord, setLatestRecord] = useState<PrescriptionRecord | null>(
+    null
+  );
   const [doctorToken, setDoctorToken] = useState<string | null>(null);
+  const [pendingShareAfterLogin, setPendingShareAfterLogin] = useState(false);
 
   const patientId = getOrCreatePatientId();
 
@@ -69,7 +82,8 @@ export default function App() {
   const route = useMemo(() => {
     if (hashRoute.startsWith("#/login")) return { kind: "login" as const };
     const m = hashRoute.match(/^#\/doctor\/(.+)$/);
-    if (m?.[1]) return { kind: "doctor" as const, token: decodeURIComponent(m[1]) };
+    if (m?.[1])
+      return { kind: "doctor" as const, token: decodeURIComponent(m[1]) };
     return { kind: "app" as const };
   }, [hashRoute]);
 
@@ -89,7 +103,7 @@ export default function App() {
   const handleAddRecord = (record: PrescriptionRecord) => {
     setPrescriptionRecords([...prescriptionRecords, record]);
     setLatestRecord(record);
-    setCurrentView('first-result');
+    setCurrentView("first-result");
   };
 
   const handleQuestionnaireComplete = async (data: QuestionnaireData) => {
@@ -97,18 +111,36 @@ export default function App() {
     try {
       const resp = await createShareToken({ patientId });
       setShareToken(resp.token);
-      setCurrentView('share');
+      setCurrentView("share");
     } catch (e) {
       const msg = String((e as any)?.message ?? e);
       // if auth is enabled on server, unauthenticated calls may fail; send user to login
       if (msg.includes("401") || msg.includes("unauthorized")) {
+        setPendingShareAfterLogin(true);
         window.location.hash = "#/login";
         return;
       }
       // fallback (offline/dev)
       const token = Math.random().toString(36).substring(2, 15);
       setShareToken(token);
-      setCurrentView('share');
+      setCurrentView("share");
+    }
+  };
+
+  const handleAuthDone = async () => {
+    window.location.hash = "";
+    if (!pendingShareAfterLogin) return;
+    setPendingShareAfterLogin(false);
+    if (!questionnaireData) return;
+    try {
+      const resp = await createShareToken({ patientId });
+      setShareToken(resp.token);
+      setCurrentView("share");
+    } catch {
+      // still allow UI demo
+      const token = Math.random().toString(36).substring(2, 15);
+      setShareToken(token);
+      setCurrentView("share");
     }
   };
 
@@ -119,58 +151,70 @@ export default function App() {
   return (
     <div className="app-container">
       {route.kind === "login" && (
-        <AuthView onDone={() => (window.location.hash = "")} />
+        <AuthView onDone={handleAuthDone} />
       )}
       {route.kind === "login" ? null : (
         <>
-          {currentView === 'home' && (
-            <Home 
+          {currentView === "home" && (
+            <Home
               onNavigate={handleViewChange}
               recordCount={prescriptionRecords.length}
             />
           )}
-          {currentView === 'quick-record' && (
-            <QuickRecord 
-              onBack={() => setCurrentView('home')}
+          {currentView === "quick-record" && (
+            <QuickRecord
+              onBack={() => setCurrentView("home")}
               onRecordSaved={handleAddRecord}
             />
           )}
-          {currentView === 'first-result' && latestRecord && (
+          {currentView === "first-result" && latestRecord && (
             <FirstResult
               record={latestRecord}
-              onContinue={() => setCurrentView('home')}
+              onContinue={() => setCurrentView("home")}
             />
           )}
-          {currentView === 'questionnaire' && (
-            <Questionnaire 
-              onBack={() => setCurrentView('home')}
+          {currentView === "questionnaire" && (
+            <Questionnaire
+              onBack={() => setCurrentView("home")}
               onComplete={handleQuestionnaireComplete}
             />
           )}
-          {currentView === 'share' && shareToken && (
-            <ShareView 
+          {currentView === "share" && shareToken && (
+            <ShareView
               token={shareToken}
-              onBack={() => setCurrentView('home')}
+              onBack={() => setCurrentView("home")}
               onRegenerateToken={() => {
-                const newToken = Math.random().toString(36).substring(2, 15);
-                setShareToken(newToken);
+                (async () => {
+                  try {
+                    const resp = await createShareToken({ patientId });
+                    setShareToken(resp.token);
+                  } catch (e) {
+                    const msg = String((e as any)?.message ?? e);
+                    if (msg.includes("401") || msg.includes("unauthorized")) {
+                      setPendingShareAfterLogin(true);
+                      window.location.hash = "#/login";
+                      return;
+                    }
+                    const newToken = Math.random().toString(36).substring(2, 15);
+                    setShareToken(newToken);
+                  }
+                })();
               }}
             />
           )}
-          {currentView === 'doctor' && (
-            doctorToken ? (
+          {currentView === "doctor" &&
+            (doctorToken ? (
               <DoctorShare token={doctorToken} />
             ) : (
-              <DoctorView 
+              <DoctorView
                 records={prescriptionRecords}
                 questionnaireData={questionnaireData}
               />
-            )
-          )}
-          {currentView === 'history' && (
-            <MedicationHistory 
+            ))}
+          {currentView === "history" && (
+            <MedicationHistory
               records={prescriptionRecords}
-              onBack={() => setCurrentView('home')}
+              onBack={() => setCurrentView("home")}
             />
           )}
         </>
