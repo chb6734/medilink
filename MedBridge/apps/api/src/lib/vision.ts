@@ -13,11 +13,14 @@ export async function ocrTextFromImageBytes(imageBytes: Buffer) {
     image: { content: imageBytes },
   });
 
-  const text = result.fullTextAnnotation?.text ?? result.textAnnotations?.[0]?.description ?? "";
+  const text =
+    result.fullTextAnnotation?.text ??
+    result.textAnnotations?.[0]?.description ??
+    "";
+
   return {
     text,
-    // Cloud Vision doesn't provide a simple per-document confidence for textDetection in a stable shape.
-    // Keep null for MVP; we can improve with Document AI/structured OCR later if needed.
+    // MVP: keep null; structured confidence comes later.
     overallConfidence: null as number | null,
   };
 }

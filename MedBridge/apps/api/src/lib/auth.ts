@@ -1,51 +1,17 @@
-import type { FastifyInstance } from "fastify";
-import cookie from "@fastify/cookie";
-import session from "@fastify/session";
 import { OAuth2Client } from "google-auth-library";
 import crypto from "node:crypto";
 
-declare module "fastify" {
-  interface Session {
-    user?: {
-      id: string;
-      provider: "google" | "phone";
-      subject: string;
-      displayName?: string;
-      phoneE164?: string;
-    };
-  }
-}
+export type SessionUser = {
+  id: string;
+  provider: "google" | "phone";
+  subject: string;
+  displayName?: string;
+  phoneE164?: string;
+};
 
 export function isAuthEnabled() {
   const v = (process.env.AUTH_ENABLED ?? "").trim().toLowerCase();
   return v === "true" || v === "1" || v === "yes" || v === "y";
-}
-
-export async function registerAuth(app: FastifyInstance) {
-  await app.register(cookie);
-  await app.register(session, {
-    secret:
-      process.env.SESSION_SECRET ??
-      "dev-only-secret-change-me-dev-only-secret-change-me",
-    cookieName: "mb.sid",
-    cookie: {
-      httpOnly: true,
-      sameSite: "lax",
-      secure: false, // dev
-      path: "/",
-      maxAge: 7 * 24 * 60 * 60, // seconds
-    },
-    saveUninitialized: false,
-  });
-}
-
-export function requireAuth(request: any, reply: any) {
-  if (!isAuthEnabled()) return true;
-  if (!request.session?.user) {
-    reply.code(401).send({ error: "unauthorized" });
-    return false;
-  }
-  return true;
 }
 
 export function getGoogleClient() {

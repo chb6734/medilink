@@ -1,0 +1,320 @@
+@import "tailwindcss";
+
+:root {
+  --color-primary: #285baa;
+  --color-primary-dark: #1e4580;
+  --color-primary-light: #4a7bbf;
+  --color-primary-bg: #e8f0fa;
+  --color-primary-lighter: #f5f9fd;
+  --color-dark: #343434;
+  --color-dark-light: #4a4a4a;
+  --color-background: #f7f9fc;
+  --color-surface: #fff;
+  --color-border: #e1e8f0;
+  --color-text-primary: #343434;
+  --color-text-secondary: #6b7280;
+  --color-text-tertiary: #9ca3af;
+  --color-verify: #f59e0b;
+  --color-verify-bg: #fef3c7;
+  --color-success: #10b981;
+  --color-success-bg: #d1fae5;
+  --color-alert: #ef4444;
+  --color-alert-bg: #fee2e2;
+  --color-info: #3b82f6;
+  --color-info-bg: #dbeafe;
+  --gradient-primary: linear-gradient(135deg, #285baa 0%, #4a7bbf 100%);
+  --gradient-card: linear-gradient(135deg, #1e4580 0%, #285baa 100%);
+  --gradient-light: linear-gradient(135deg, #e8f0fa 0%, #f5f9fd 100%);
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-size: 16px;
+}
+
+body {
+  color: var(--color-text-primary);
+  background: var(--color-background);
+  font-family:
+    -apple-system,
+    BlinkMacSystemFont,
+    Segoe UI,
+    Roboto,
+    Oxygen,
+    Ubuntu,
+    Cantarell,
+    Fira Sans,
+    Droid Sans,
+    Helvetica Neue,
+    sans-serif;
+  line-height: 1.5;
+}
+
+h1 {
+  letter-spacing: -0.02em;
+  color: var(--color-text-primary);
+  font-size: 1.75rem;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+h2 {
+  color: var(--color-text-primary);
+  font-size: 1.375rem;
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+h3 {
+  color: var(--color-text-primary);
+  font-size: 1.125rem;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+p {
+  line-height: 1.6;
+}
+
+button,
+input,
+textarea {
+  font-family: inherit;
+  font-size: inherit;
+}
+
+.app-container {
+  background: var(--color-background);
+  max-width: 428px;
+  min-height: 100vh;
+  margin: 0 auto;
+  position: relative;
+  box-shadow: 0 0 40px #00000014;
+}
+
+.card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 20px;
+  padding: 20px;
+  box-shadow: 0 2px 8px #285baa0f;
+}
+
+.card-gradient {
+  background: var(--gradient-card);
+  color: #fff;
+  border-radius: 20px;
+  padding: 24px;
+  box-shadow: 0 8px 24px #285baa33;
+}
+
+.card-light {
+  background: var(--gradient-light);
+  border: 2px solid #d1e3f8;
+  border-radius: 20px;
+  padding: 20px;
+}
+
+.btn-primary {
+  background: var(--color-primary);
+  color: #fff;
+  border: none;
+  border-radius: 16px;
+  min-height: 56px;
+  padding: 16px 24px;
+  font-size: 1rem;
+  font-weight: 600;
+  transition: all 0.3s;
+  box-shadow: 0 4px 12px #285baa40;
+  cursor: pointer;
+}
+
+.btn-primary:hover {
+  background: var(--color-primary-dark);
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px #285baa59;
+}
+
+.btn-primary:active {
+  transform: translateY(0);
+}
+
+.btn-secondary {
+  background: var(--color-surface);
+  color: var(--color-text-primary);
+  border: 2px solid var(--color-border);
+  border-radius: 16px;
+  min-height: 56px;
+  padding: 14px 24px;
+  font-weight: 600;
+  transition: all 0.2s;
+  cursor: pointer;
+}
+
+.btn-secondary:hover {
+  border-color: var(--color-primary);
+  background: var(--color-primary-bg);
+  color: var(--color-primary);
+}
+
+.btn-icon {
+  background: var(--color-primary-bg);
+  width: 56px;
+  height: 56px;
+  color: var(--color-primary);
+  border-radius: 16px;
+  justify-content: center;
+  align-items: center;
+  transition: all 0.2s;
+  display: flex;
+  cursor: pointer;
+}
+
+.btn-icon:hover {
+  background: var(--color-primary);
+  color: #fff;
+  transform: scale(1.05);
+}
+
+.badge-verify {
+  background: var(--color-verify-bg);
+  color: #92400e;
+  border-radius: 8px;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 12px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  display: inline-flex;
+}
+
+.badge-success {
+  background: var(--color-success-bg);
+  color: #065f46;
+  border-radius: 8px;
+  padding: 6px 12px;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.badge-primary {
+  background: var(--color-primary-bg);
+  color: var(--color-primary);
+  border-radius: 8px;
+  padding: 6px 12px;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.badge-info {
+  background: var(--color-info-bg);
+  color: #1e40af;
+  border-radius: 8px;
+  padding: 6px 12px;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.input-field {
+  border: 2px solid var(--color-border);
+  background: var(--color-surface);
+  border-radius: 14px;
+  outline: none;
+  width: 100%;
+  padding: 16px 18px;
+  font-size: 1rem;
+  transition: all 0.2s;
+}
+
+.input-field:focus {
+  border-color: var(--color-primary);
+  background: var(--color-primary-lighter);
+}
+
+.section-title {
+  color: var(--color-text-primary);
+  margin-bottom: 12px;
+  font-size: 1.125rem;
+  font-weight: 700;
+}
+
+.text-gradient {
+  background: var(--gradient-primary);
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.medical-icon-wrapper {
+  background: var(--gradient-primary);
+  border-radius: 16px;
+  justify-content: center;
+  align-items: center;
+  width: 56px;
+  height: 56px;
+  display: flex;
+  box-shadow: 0 4px 12px #285baa33;
+}
+
+.trust-badge {
+  background: var(--color-primary-bg);
+  color: var(--color-primary);
+  border: 2px solid #d1e3f8;
+  border-radius: 12px;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  display: inline-flex;
+}
+
+@media (width <= 640px) {
+  html {
+    font-size: 15px;
+  }
+
+  h1 {
+    font-size: 1.625rem;
+  }
+
+  .app-container {
+    box-shadow: none;
+  }
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-slide-up {
+  animation: 0.4s ease-out slideUp;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+.animate-fade-in {
+  animation: 0.5s ease-out fadeIn;
+}

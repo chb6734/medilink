@@ -7,7 +7,9 @@ function getVertexAi() {
     const project = process.env.GOOGLE_CLOUD_PROJECT;
     const location = process.env.GOOGLE_CLOUD_LOCATION ?? "us-central1";
     if (!project) {
-      throw new Error("Missing GOOGLE_CLOUD_PROJECT (required for Gemini via Vertex AI).");
+      throw new Error(
+        "Missing GOOGLE_CLOUD_PROJECT (required for Gemini via Vertex AI).",
+      );
     }
     cached = new VertexAI({ project, location });
   }
@@ -15,7 +17,7 @@ function getVertexAi() {
 }
 
 export async function summarizeForClinician(rawText: string) {
-  // MVP optional: we keep this behind an env flag to avoid accidental medical outputs.
+  // MVP optional: keep behind env flag.
   if (process.env.GEMINI_ENABLED !== "true") return null;
 
   const vertex = getVertexAi();
@@ -44,7 +46,12 @@ export async function summarizeForClinician(rawText: string) {
     contents: [{ role: "user", parts: [{ text: prompt }] }],
   });
 
-  return resp.response.candidates?.[0]?.content?.parts?.map((p) => ("text" in p ? p.text : "")).join("")?.trim() ?? null;
+  return (
+    resp.response.candidates?.[0]?.content?.parts
+      ?.map((p) => ("text" in p ? p.text : ""))
+      .join("")
+      ?.trim() ?? null
+  );
 }
 
 

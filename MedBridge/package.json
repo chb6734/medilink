@@ -7,9 +7,12 @@
   ],
   "packageManager": "pnpm@9.15.0",
   "scripts": {
-    "dev": "pnpm -C apps/web dev",
-    "build": "pnpm -C apps/web build",
-    "dev:api": "pnpm -C apps/api dev",
-    "lint": "echo \"(todo)\""
+    "dev": "pnpm --filter @medbridge/web dev",
+    "build": "pnpm --filter @medbridge/web build",
+    "dev:api": "pnpm --filter @medbridge/api start:dev",
+    "build:api": "pnpm --filter @medbridge/api build",
+    "dev:legacy:web": "pnpm --filter @medbridge/web-vite dev",
+    "dev:legacy:api": "pnpm --filter @medbridge/api-fastify dev",
+    "lint": "pnpm --filter @medbridge/web lint && pnpm --filter @medbridge/api lint"
   }
 }
