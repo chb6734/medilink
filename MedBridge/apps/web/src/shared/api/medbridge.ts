@@ -40,6 +40,19 @@ export async function createRecord(params: {
   return await fetchForm(`/api/records?${qs.toString()}`, form);
 }
 
+export async function getRecordCount(params: {
+  patientId: string;
+  days?: number;
+}) {
+  const qs = new URLSearchParams({ patientId: params.patientId });
+  if (params.days != null) qs.set("days", String(params.days));
+
+  return await fetchJson<{ count: number; days: number; since: string }>(
+    `/api/records/count?${qs.toString()}`,
+    { method: "GET" },
+  );
+}
+
 export async function createShareToken(params: {
   patientId: string;
   facilityId?: string;
@@ -61,7 +74,7 @@ export async function fetchShare(token: string) {
 }
 
 export async function authMe() {
-  return await fetchJson<{ authEnabled: boolean; user: any }>(
+  return await fetchJson<{ authEnabled: boolean; user: unknown }>(
     "/api/auth/me",
     { method: "GET" },
   );
@@ -83,9 +96,9 @@ export async function authPhoneStart(params: { phoneE164: string }) {
   return await fetchJson<{ challengeId: string; expiresAt: number }>(
     "/api/auth/phone/start",
     {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify(params),
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(params),
     },
   );
 }

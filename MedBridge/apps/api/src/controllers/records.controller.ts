@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   Controller,
+  Get,
   Post,
   Query,
   Req,
@@ -19,7 +20,7 @@ import { ocrTextFromImageBytes } from "../lib/vision";
 import { summarizeForClinician } from "../lib/gemini";
 import { parseMedCandidates } from "../lib/meds";
 import { isAuthEnabled } from "../lib/auth";
-import { memAddRecord } from "../lib/memory";
+import { memAddRecord, memGetRecords } from "../lib/memory";
 
 function requireAuth(req: Request) {
   if (!isAuthEnabled()) return;
@@ -38,6 +39,44 @@ function ensureDbConfigured() {
 
 @Controller()
 export class RecordsController {
+  // Record count for patient (default last 90 days)
+  @Get("/api/records/count")
+  async count(@Req() req: Request, @Query() query: unknown) {
+    ensureDbConfigured();
+    requireAuth(req);
+
+    const parsed = z
+      .object({
+        patientId: z.string().uuid(),
+        days: z.coerce.number().int().positive().max(3650).optional(),
+      })
+      .safeParse(query);
+
+    if (!parsed.success) {
+      throw new BadRequestException({
+        error: "invalid_query",
+        details: parsed.error.flatten(),
+      });
+    }
+
+    const days = parsed.data.days ?? 90;
+    const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+
+    if (useInMemoryStore) {
+      const records = memGetRecords(parsed.data.patientId);
+      const count = records.filter((r) => r.createdAt >= since).length;
+      return { count, since, days };
+    }
+
+    const count = await prisma.prescriptionRecord.count({
+      where: {
+        patientId: parsed.data.patientId,
+        createdAt: { gte: since },
+      },
+    });
+    return { count, since, days };
+  }
+
   // OCR Preview (no DB write)
   @Post("/api/records/preview-ocr")
   @UseInterceptors(
