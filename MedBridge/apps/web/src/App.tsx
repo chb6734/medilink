@@ -6,6 +6,7 @@ import { Questionnaire } from './components/Questionnaire';
 import { ShareView } from './components/ShareView';
 import { DoctorView } from './components/DoctorView';
 import { DoctorShare } from './components/DoctorShare';
+import { AuthView } from './components/AuthView';
 import { MedicationHistory } from './components/MedicationHistory';
 import { getOrCreatePatientId } from './lib/patient';
 import { createShareToken } from './lib/api';
@@ -57,6 +58,14 @@ export default function App() {
 
   const patientId = getOrCreatePatientId();
 
+  // hash router
+  if (currentView !== "doctor") {
+    const hash = window.location.hash || "";
+    if (hash === "#/login" && currentView !== "home") {
+      // keep currentView, login rendered via overlay route in home
+    }
+  }
+
   // Hash route: #/doctor/<token>
   if (!doctorToken) {
     const hash = window.location.hash || "";
@@ -80,6 +89,12 @@ export default function App() {
       setShareToken(resp.token);
       setCurrentView('share');
     } catch (e) {
+      const msg = String((e as any)?.message ?? e);
+      // if auth is enabled on server, unauthenticated calls may fail; send user to login
+      if (msg.includes("401") || msg.includes("unauthorized")) {
+        window.location.hash = "#/login";
+        return;
+      }
       // fallback (offline/dev)
       const token = Math.random().toString(36).substring(2, 15);
       setShareToken(token);
@@ -93,6 +108,13 @@ export default function App() {
 
   return (
     <div className="app-container">
+      {window.location.hash === "#/login" && (
+        <AuthView
+          onDone={() => {
+            window.location.hash = "";
+          }}
+        />
+      )}
       {currentView === 'home' && (
         <Home 
           onNavigate={handleViewChange}
