@@ -8,7 +8,14 @@ import { ocrTextFromImageBytes } from "./lib/vision";
 import { randomToken, sha256Base64Url } from "./lib/crypto";
 import { summarizeForClinician } from "./lib/gemini";
 import crypto from "node:crypto";
-import { getGoogleClient, isAuthEnabled, randomOtpCode, registerAuth, requireAuth, sha256 } from "./lib/auth";
+import {
+  getGoogleClient,
+  isAuthEnabled,
+  randomOtpCode,
+  registerAuth,
+  requireAuth,
+  sha256,
+} from "./lib/auth";
 
 const PORT = Number(process.env.PORT ?? 8787);
 const HOST = process.env.HOST ?? "0.0.0.0";
@@ -69,7 +76,12 @@ app.post("/api/auth/google", async (req: any, reply) => {
     };
     return { ok: true };
   } catch (e) {
-    return reply.code(401).send({ error: "google_verify_failed", details: String((e as any)?.message ?? e) });
+    return reply
+      .code(401)
+      .send({
+        error: "google_verify_failed",
+        details: String((e as any)?.message ?? e),
+      });
   }
 });
 
@@ -82,13 +94,20 @@ const otpStore = new Map<
 app.post("/api/auth/phone/start", async (req: any, reply) => {
   if (!isAuthEnabled()) return reply.code(404).send({ error: "auth_disabled" });
 
-  const body = z.object({ phoneE164: z.string().min(8).max(20) }).safeParse(req.body);
+  const body = z
+    .object({ phoneE164: z.string().min(8).max(20) })
+    .safeParse(req.body);
   if (!body.success) return reply.code(400).send({ error: "invalid_body" });
 
   const challengeId = crypto.randomUUID();
   const code = randomOtpCode();
   const expiresAt = Date.now() + 5 * 60 * 1000;
-  otpStore.set(challengeId, { phoneE164: body.data.phoneE164, codeHash: sha256(code), expiresAt, tries: 0 });
+  otpStore.set(challengeId, {
+    phoneE164: body.data.phoneE164,
+    codeHash: sha256(code),
+    expiresAt,
+    tries: 0,
+  });
 
   // DEV: print OTP to server log. Replace with SMS vendor in production.
   app.log.warn({ phone: body.data.phoneE164, code }, "DEV_OTP_CODE");
@@ -106,12 +125,14 @@ app.post("/api/auth/phone/verify", async (req: any, reply) => {
 
   const entry = otpStore.get(body.data.challengeId);
   if (!entry) return reply.code(404).send({ error: "challenge_not_found" });
-  if (Date.now() > entry.expiresAt) return reply.code(410).send({ error: "challenge_expired" });
+  if (Date.now() > entry.expiresAt)
+    return reply.code(410).send({ error: "challenge_expired" });
 
   entry.tries += 1;
   if (entry.tries > 5) return reply.code(429).send({ error: "too_many_tries" });
 
-  if (sha256(body.data.code) !== entry.codeHash) return reply.code(401).send({ error: "invalid_code" });
+  if (sha256(body.data.code) !== entry.codeHash)
+    return reply.code(401).send({ error: "invalid_code" });
 
   req.session.user = {
     id: crypto.randomUUID(),
