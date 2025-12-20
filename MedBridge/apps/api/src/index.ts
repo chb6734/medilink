@@ -148,11 +148,17 @@ app.post("/api/records/preview-ocr", async (req, reply) => {
     text = r.text;
     overallConfidence = r.overallConfidence;
   } catch (e) {
+    if (useInMemoryStore) {
+      // Dev fallback: allow UI to proceed without GCP creds.
+      text = "OCR 미설정(개발 모드) — 실제 배포에서는 Google Cloud Vision 설정이 필요합니다.";
+      overallConfidence = null;
+    } else {
     return reply.code(503).send({
       error: "ocr_unavailable",
       hint: "Configure Google Cloud Vision credentials (ADC / GOOGLE_APPLICATION_CREDENTIALS).",
       details: String((e as any)?.message ?? e),
     });
+    }
   }
   const meds = parseMedCandidates(text);
 
@@ -198,11 +204,15 @@ app.post("/api/records", async (req, reply) => {
     const r = await ocrTextFromImageBytes(buf);
     text = r.text;
   } catch (e) {
+    if (useInMemoryStore) {
+      text = "OCR 미설정(개발 모드) — 실제 배포에서는 Google Cloud Vision 설정이 필요합니다.";
+    } else {
     return reply.code(503).send({
       error: "ocr_unavailable",
       hint: "Configure Google Cloud Vision credentials (ADC / GOOGLE_APPLICATION_CREDENTIALS).",
       details: String((e as any)?.message ?? e),
     });
+    }
   }
 
   const meds = parseMedCandidates(text);
@@ -335,8 +345,10 @@ app.get("/share/:token", async (req, reply) => {
 
   if (useInMemoryStore) {
     const share = memory.sharesByTokenHash.get(tokenHash);
-    if (!share || share.revokedAt) return reply.code(404).send({ error: "not_found" });
-    if (share.expiresAt.getTime() <= Date.now()) return reply.code(410).send({ error: "expired" });
+    if (!share || share.revokedAt)
+      return reply.code(404).send({ error: "not_found" });
+    if (share.expiresAt.getTime() <= Date.now())
+      return reply.code(410).send({ error: "expired" });
 
     const records = memory.recordsByPatient.get(share.patientId) ?? [];
     return {
