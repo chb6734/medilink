@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { ArrowLeft, Calendar, Pill, ChevronDown, ChevronUp, AlertCircle } from 'lucide-react';
-import { PrescriptionRecord } from '../App';
+import type { PrescriptionRecord } from '@/entities/record/model/types';
 
 interface MedicationHistoryProps {
   records: PrescriptionRecord[];

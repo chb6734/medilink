@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { DoctorView } from "./DoctorView";
-import type { PrescriptionRecord, QuestionnaireData } from "../App";
+import type { PrescriptionRecord } from "@/entities/record/model/types";
+import type { QuestionnaireData } from "@/entities/questionnaire/model/types";
 import { fetchShare } from "@/shared/api";
 
 export function DoctorShare({ token }: { token: string }) {

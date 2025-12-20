@@ -1,8 +1,8 @@
 import React, { useState } from "react";
 import { ArrowLeft, Camera, AlertCircle, CheckCircle } from "lucide-react";
-import { PrescriptionRecord, Medication } from "../App";
+import type { PrescriptionRecord, Medication } from "@/entities/record/model/types";
 import { previewOcr, createRecord } from "@/shared/api";
-import { getOrCreatePatientId } from "../lib/patient";
+import { getOrCreatePatientId } from "@/entities/patient/lib/patientId";
 
 interface QuickRecordProps {
   onBack: () => void;

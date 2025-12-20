@@ -6,7 +6,7 @@ import {
   ChevronRight,
   Search,
 } from "lucide-react";
-import { QuestionnaireData } from "../App";
+import type { QuestionnaireData } from "@/entities/questionnaire/model/types";
 
 interface QuestionnaireProps {
   onBack: () => void;

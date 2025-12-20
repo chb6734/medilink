@@ -1,8 +1,8 @@
 "use client";
 
-import { Questionnaire } from "@/legacy/components/Questionnaire";
+import { Questionnaire } from "@/features/questionnaire/ui/Questionnaire";
 import { createShareToken } from "@/shared/api";
-import { getOrCreatePatientId } from "@/legacy/lib/patient";
+import { getOrCreatePatientId } from "@/entities/patient/lib/patientId";
 import { useRouter } from "next/navigation";
 
 export default function QuestionnairePage() {

@@ -1,6 +1,6 @@
 "use client";
 
-import { AuthView } from "@/legacy/components/AuthView";
+import { AuthView } from "@/widgets/auth/AuthView";
 import { useRouter } from "next/navigation";
 
 export default function LoginPage() {

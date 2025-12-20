@@ -1,13 +1,20 @@
 import { Camera, FileText, Clock, Pill, User, LogIn } from "lucide-react";
-import { ViewType } from "../App";
 
 interface HomeProps {
-  onNavigate: (view: ViewType) => void;
+  onQuickRecord: () => void;
+  onQuestionnaire: () => void;
+  onHistory: () => void;
   onLogin: () => void;
   recordCount: number;
 }
 
-export function Home({ onNavigate, onLogin, recordCount }: HomeProps) {
+export function Home({
+  onQuickRecord,
+  onQuestionnaire,
+  onHistory,
+  onLogin,
+  recordCount,
+}: HomeProps) {
   return (
     <div className="min-h-screen pb-24">
       {/* Header with Greeting */}
@@ -89,9 +96,7 @@ export function Home({ onNavigate, onLogin, recordCount }: HomeProps) {
           }}
         >
           <button
-            onClick={() => {
-              window.location.href = "/quick-record";
-            }}
+            onClick={onQuickRecord}
             style={{
               background: "var(--color-surface)",
               borderRadius: "20px",
@@ -132,9 +137,7 @@ export function Home({ onNavigate, onLogin, recordCount }: HomeProps) {
           </button>
 
           <button
-            onClick={() => {
-              window.location.href = "/questionnaire";
-            }}
+            onClick={onQuestionnaire}
             style={{
               background: "var(--color-surface)",
               borderRadius: "20px",
@@ -186,7 +189,7 @@ export function Home({ onNavigate, onLogin, recordCount }: HomeProps) {
           </button>
 
           <button
-            onClick={() => onNavigate("history")}
+            onClick={onHistory}
             style={{
               background: "var(--color-surface)",
               borderRadius: "20px",

@@ -1,7 +1,7 @@
 "use client";
 
-import { ShareView } from "@/legacy/components/ShareView";
-import { getOrCreatePatientId } from "@/legacy/lib/patient";
+import { ShareView } from "@/widgets/share/ShareView";
+import { getOrCreatePatientId } from "@/entities/patient/lib/patientId";
 import { createShareToken } from "@/shared/api";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";

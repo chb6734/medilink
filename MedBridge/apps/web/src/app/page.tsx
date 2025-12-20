@@ -1,14 +1,20 @@
-import AppClient from "./ui/AppClient";
+"use client";
 
-export default function Home() {
+import { Home } from "@/widgets/home/Home";
+import { useRouter } from "next/navigation";
+
+export default function HomePage() {
+  const router = useRouter();
+
   return (
-    <div
-      className="min-h-screen"
-      style={{ background: "var(--color-background)" }}
-    >
-      {/* 기존 Vite SPA를 그대로 마운트해서 기능/디자인을 먼저 살린 뒤,
-          이후 단계에서 Next 라우트(/doctor/[token] 등)로 점진 분리합니다. */}
-      <AppClient />
+    <div className="app-container">
+      <Home
+        recordCount={0}
+        onLogin={() => router.push("/login")}
+        onQuickRecord={() => router.push("/quick-record")}
+        onQuestionnaire={() => router.push("/questionnaire")}
+        onHistory={() => router.push("/")}
+      />
     </div>
   );
 }

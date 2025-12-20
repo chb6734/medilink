@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { ChevronDown, ChevronUp, AlertCircle, Clock, Pill, User, FileText } from 'lucide-react';
-import { PrescriptionRecord, QuestionnaireData } from '../App';
+import type { PrescriptionRecord } from "@/entities/record/model/types";
+import type { QuestionnaireData } from "@/entities/questionnaire/model/types";
 
 interface DoctorViewProps {
   records: PrescriptionRecord[];

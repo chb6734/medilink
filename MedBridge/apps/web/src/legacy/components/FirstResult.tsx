@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Bell, CheckCircle, AlertCircle, Sparkles } from 'lucide-react';
-import { PrescriptionRecord } from '../App';
+import type { PrescriptionRecord } from '@/entities/record/model/types';
 
 interface FirstResultProps {
   record: PrescriptionRecord;

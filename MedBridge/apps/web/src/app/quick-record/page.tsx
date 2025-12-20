@@ -1,6 +1,6 @@
 "use client";
 
-import { QuickRecord } from "@/legacy/components/QuickRecord";
+import { QuickRecord } from "@/features/quick-record/ui/QuickRecord";
 import { useRouter } from "next/navigation";
 
 export default function QuickRecordPage() {
