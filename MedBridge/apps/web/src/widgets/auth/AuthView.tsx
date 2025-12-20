@@ -403,11 +403,40 @@ export function AuthView({ onDone }: { onDone: () => void }) {
                         lineHeight: 1.6,
                       }}
                     >
-                      웹 환경변수에{" "}
+                      Next(Web) 환경변수에{" "}
                       <code style={{ fontWeight: 800 }}>
                         NEXT_PUBLIC_GOOGLE_CLIENT_ID
                       </code>
                       를 설정하세요.
+                    </p>
+                    <p
+                      style={{
+                        marginTop: 10,
+                        marginBottom: 0,
+                        color: "#92400E",
+                        lineHeight: 1.6,
+                        fontSize: "0.9375rem",
+                      }}
+                    >
+                      보통 파일 위치는{" "}
+                      <code style={{ fontWeight: 800 }}>
+                        MedBridge/apps/web/.env.local
+                      </code>
+                      입니다. (루트 <code>.env</code>는 Next가 안 읽을 수 있어요)
+                    </p>
+                    <p
+                      style={{
+                        marginTop: 10,
+                        marginBottom: 0,
+                        color: "#92400E",
+                        lineHeight: 1.6,
+                        fontSize: "0.875rem",
+                      }}
+                    >
+                      참고: 이 화면은{" "}
+                      <code>NEXT_PUBLIC_GOOGLE_CLIENT_ID</code> 또는{" "}
+                      <code>NEXT_PUBLIC_GOOGLE_OAUTH_CLIENT_ID</code> 둘 중 하나를
+                      읽습니다.
                     </p>
                   </div>
                 ) : !authEnabled ? (
@@ -490,7 +519,8 @@ export function AuthView({ onDone }: { onDone: () => void }) {
                         }}
                       >
                         로컬 개발에서는 Google Console에{" "}
-                        <code>http://127.0.0.1:5173</code>를 Origin으로 등록해야
+                        <code>http://localhost:3000</code> (또는{" "}
+                        <code>http://127.0.0.1:3000</code>)를 Origin으로 등록해야
                         합니다.
                       </p>
                     )}
