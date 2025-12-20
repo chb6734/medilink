@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Home } from './components/Home';
 import { QuickRecord } from './components/QuickRecord';
 import { FirstResult } from './components/FirstResult';
@@ -58,23 +58,33 @@ export default function App() {
 
   const patientId = getOrCreatePatientId();
 
-  // hash router
-  if (currentView !== "doctor") {
-    const hash = window.location.hash || "";
-    if (hash === "#/login" && currentView !== "home") {
-      // keep currentView, login rendered via overlay route in home
-    }
-  }
+  const [hashRoute, setHashRoute] = useState(() => window.location.hash || "");
 
-  // Hash route: #/doctor/<token>
-  if (!doctorToken) {
-    const hash = window.location.hash || "";
-    const m = hash.match(/^#\/doctor\/(.+)$/);
-    if (m?.[1]) {
-      setDoctorToken(decodeURIComponent(m[1]));
+  useEffect(() => {
+    const onHashChange = () => setHashRoute(window.location.hash || "");
+    window.addEventListener("hashchange", onHashChange);
+    return () => window.removeEventListener("hashchange", onHashChange);
+  }, []);
+
+  const route = useMemo(() => {
+    if (hashRoute.startsWith("#/login")) return { kind: "login" as const };
+    const m = hashRoute.match(/^#\/doctor\/(.+)$/);
+    if (m?.[1]) return { kind: "doctor" as const, token: decodeURIComponent(m[1]) };
+    return { kind: "app" as const };
+  }, [hashRoute]);
+
+  useEffect(() => {
+    if (route.kind === "doctor") {
+      setDoctorToken(route.token);
       setCurrentView("doctor");
     }
-  }
+    if (route.kind === "app" && doctorToken) {
+      // returning back from doctor route
+      setDoctorToken(null);
+      setCurrentView("home");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [route.kind]);
 
   const handleAddRecord = (record: PrescriptionRecord) => {
     setPrescriptionRecords([...prescriptionRecords, record]);
@@ -108,13 +118,10 @@ export default function App() {
 
   return (
     <div className="app-container">
-      {window.location.hash === "#/login" && (
-        <AuthView
-          onDone={() => {
-            window.location.hash = "";
-          }}
-        />
+      {route.kind === "login" && (
+        <AuthView onDone={() => (window.location.hash = "")} />
       )}
+      {route.kind === "login" ? null : (
       {currentView === 'home' && (
         <Home 
           onNavigate={handleViewChange}
@@ -164,6 +171,7 @@ export default function App() {
           records={prescriptionRecords}
           onBack={() => setCurrentView('home')}
         />
+      )}
       )}
     </div>
   );
