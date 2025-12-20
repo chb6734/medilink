@@ -8,6 +8,7 @@ import { ocrTextFromImageBytes } from "./lib/vision";
 import { randomToken, sha256Base64Url } from "./lib/crypto";
 import { summarizeForClinician } from "./lib/gemini";
 import crypto from "node:crypto";
+import { getGoogleClient, isAuthEnabled, randomOtpCode, registerAuth, requireAuth, sha256 } from "./lib/auth";
 
 const PORT = Number(process.env.PORT ?? 8787);
 const HOST = process.env.HOST ?? "0.0.0.0";
@@ -15,6 +16,8 @@ const HOST = process.env.HOST ?? "0.0.0.0";
 const app = Fastify({
   logger: true,
 });
+
+await registerAuth(app);
 
 await app.register(cors, {
   origin: true,
@@ -34,6 +37,96 @@ await app.register(multipart, {
 });
 
 app.get("/health", async () => ({ ok: true }));
+
+app.get("/api/auth/me", async (req: any) => {
+  return {
+    authEnabled: isAuthEnabled(),
+    user: req.session?.user ?? null,
+  };
+});
+
+// Google login (ID token from client)
+app.post("/api/auth/google", async (req: any, reply) => {
+  if (!isAuthEnabled()) return reply.code(404).send({ error: "auth_disabled" });
+
+  const body = z.object({ idToken: z.string().min(10) }).safeParse(req.body);
+  if (!body.success) return reply.code(400).send({ error: "invalid_body" });
+
+  try {
+    const client = getGoogleClient();
+    const ticket = await client.verifyIdToken({
+      idToken: body.data.idToken,
+      audience: process.env.GOOGLE_OAUTH_CLIENT_ID,
+    });
+    const payload = ticket.getPayload();
+    if (!payload?.sub) return reply.code(401).send({ error: "invalid_token" });
+
+    req.session.user = {
+      id: crypto.randomUUID(),
+      provider: "google",
+      subject: payload.sub,
+      displayName: payload.name ?? payload.email ?? undefined,
+    };
+    return { ok: true };
+  } catch (e) {
+    return reply.code(401).send({ error: "google_verify_failed", details: String((e as any)?.message ?? e) });
+  }
+});
+
+// Phone OTP (DEV skeleton)
+const otpStore = new Map<
+  string,
+  { phoneE164: string; codeHash: string; expiresAt: number; tries: number }
+>();
+
+app.post("/api/auth/phone/start", async (req: any, reply) => {
+  if (!isAuthEnabled()) return reply.code(404).send({ error: "auth_disabled" });
+
+  const body = z.object({ phoneE164: z.string().min(8).max(20) }).safeParse(req.body);
+  if (!body.success) return reply.code(400).send({ error: "invalid_body" });
+
+  const challengeId = crypto.randomUUID();
+  const code = randomOtpCode();
+  const expiresAt = Date.now() + 5 * 60 * 1000;
+  otpStore.set(challengeId, { phoneE164: body.data.phoneE164, codeHash: sha256(code), expiresAt, tries: 0 });
+
+  // DEV: print OTP to server log. Replace with SMS vendor in production.
+  app.log.warn({ phone: body.data.phoneE164, code }, "DEV_OTP_CODE");
+
+  return { challengeId, expiresAt };
+});
+
+app.post("/api/auth/phone/verify", async (req: any, reply) => {
+  if (!isAuthEnabled()) return reply.code(404).send({ error: "auth_disabled" });
+
+  const body = z
+    .object({ challengeId: z.string().uuid(), code: z.string().min(4).max(10) })
+    .safeParse(req.body);
+  if (!body.success) return reply.code(400).send({ error: "invalid_body" });
+
+  const entry = otpStore.get(body.data.challengeId);
+  if (!entry) return reply.code(404).send({ error: "challenge_not_found" });
+  if (Date.now() > entry.expiresAt) return reply.code(410).send({ error: "challenge_expired" });
+
+  entry.tries += 1;
+  if (entry.tries > 5) return reply.code(429).send({ error: "too_many_tries" });
+
+  if (sha256(body.data.code) !== entry.codeHash) return reply.code(401).send({ error: "invalid_code" });
+
+  req.session.user = {
+    id: crypto.randomUUID(),
+    provider: "phone",
+    subject: entry.phoneE164,
+    phoneE164: entry.phoneE164,
+  };
+  otpStore.delete(body.data.challengeId);
+  return { ok: true };
+});
+
+app.post("/api/auth/logout", async (req: any) => {
+  req.session.user = undefined;
+  return { ok: true };
+});
 
 /**
  * Dev convenience: if DATABASE_URL is not set, fall back to an in-memory store
@@ -154,23 +247,24 @@ app.post("/api/records/preview-ocr", async (req, reply) => {
       "OCR 미설정(개발 모드) — 실제 배포에서는 Google Cloud Vision 설정이 필요합니다.";
     overallConfidence = null;
   } else {
-  try {
-    const r = await ocrTextFromImageBytes(buf);
-    text = r.text;
-    overallConfidence = r.overallConfidence;
-  } catch (e) {
-    if (useInMemoryStore) {
-      // Dev fallback: allow UI to proceed without GCP creds.
-      text = "OCR 미설정(개발 모드) — 실제 배포에서는 Google Cloud Vision 설정이 필요합니다.";
-      overallConfidence = null;
-    } else {
-    return reply.code(503).send({
-      error: "ocr_unavailable",
-      hint: "Configure Google Cloud Vision credentials (ADC / GOOGLE_APPLICATION_CREDENTIALS).",
-      details: String((e as any)?.message ?? e),
-    });
+    try {
+      const r = await ocrTextFromImageBytes(buf);
+      text = r.text;
+      overallConfidence = r.overallConfidence;
+    } catch (e) {
+      if (useInMemoryStore) {
+        // Dev fallback: allow UI to proceed without GCP creds.
+        text =
+          "OCR 미설정(개발 모드) — 실제 배포에서는 Google Cloud Vision 설정이 필요합니다.";
+        overallConfidence = null;
+      } else {
+        return reply.code(503).send({
+          error: "ocr_unavailable",
+          hint: "Configure Google Cloud Vision credentials (ADC / GOOGLE_APPLICATION_CREDENTIALS).",
+          details: String((e as any)?.message ?? e),
+        });
+      }
     }
-  }
   }
   const meds = parseMedCandidates(text);
 
@@ -184,6 +278,7 @@ app.post("/api/records/preview-ocr", async (req, reply) => {
 // Create record with OCR + DB write (no image storage)
 app.post("/api/records", async (req, reply) => {
   if (!ensureDbConfigured(reply)) return;
+  if (!requireAuth(req, reply)) return;
   const file = await req.file();
   if (!file) return reply.code(400).send({ error: "file_required" });
 
@@ -216,20 +311,21 @@ app.post("/api/records", async (req, reply) => {
     text =
       "OCR 미설정(개발 모드) — 실제 배포에서는 Google Cloud Vision 설정이 필요합니다.";
   } else {
-  try {
-    const r = await ocrTextFromImageBytes(buf);
-    text = r.text;
-  } catch (e) {
-    if (useInMemoryStore) {
-      text = "OCR 미설정(개발 모드) — 실제 배포에서는 Google Cloud Vision 설정이 필요합니다.";
-    } else {
-    return reply.code(503).send({
-      error: "ocr_unavailable",
-      hint: "Configure Google Cloud Vision credentials (ADC / GOOGLE_APPLICATION_CREDENTIALS).",
-      details: String((e as any)?.message ?? e),
-    });
+    try {
+      const r = await ocrTextFromImageBytes(buf);
+      text = r.text;
+    } catch (e) {
+      if (useInMemoryStore) {
+        text =
+          "OCR 미설정(개발 모드) — 실제 배포에서는 Google Cloud Vision 설정이 필요합니다.";
+      } else {
+        return reply.code(503).send({
+          error: "ocr_unavailable",
+          hint: "Configure Google Cloud Vision credentials (ADC / GOOGLE_APPLICATION_CREDENTIALS).",
+          details: String((e as any)?.message ?? e),
+        });
+      }
     }
-  }
   }
 
   const meds = parseMedCandidates(text);
@@ -307,6 +403,7 @@ app.post("/api/records", async (req, reply) => {
 // Create share token (TTL 10min) - patient-only re-issue should revoke prior tokens
 app.post("/api/share-tokens", async (req, reply) => {
   if (!ensureDbConfigured(reply)) return;
+  if (!requireAuth(req, reply)) return;
   const body = z
     .object({
       patientId: z.string().uuid(),
