@@ -41,6 +41,11 @@ Gemini 요약은 기본적으로 OFF이며, 켜려면 아래 값을 설정합니
 
 - **GOOGLE_OAUTH_CLIENT_ID**
 
+#### Web (Vite) 환경변수
+웹에서 Google 로그인 버튼을 띄우려면 아래 값도 필요합니다.
+
+- **VITE_GOOGLE_CLIENT_ID** (웹에서 사용; 위 Client ID와 동일 값)
+
 ### 4.2 Phone 로그인(SMS OTP)
 
 현재는 **DEV 골격**으로, OTP를 서버 로그에 출력합니다.  

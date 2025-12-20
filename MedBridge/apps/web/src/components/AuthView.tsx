@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   authGoogle,
   authMe,
@@ -15,8 +15,14 @@ export function AuthView({ onDone }: { onDone: () => void }) {
 
   const [tab, setTab] = useState<"google" | "phone">("phone");
 
-  // Google (dev): paste ID token
-  const [idToken, setIdToken] = useState("");
+  const googleClientId =
+    (import.meta as any).env?.VITE_GOOGLE_CLIENT_ID ??
+    (import.meta as any).env?.VITE_GOOGLE_OAUTH_CLIENT_ID ??
+    "";
+  const googleButtonRef = useRef<HTMLDivElement | null>(null);
+  const googleScriptLoadedRef = useRef(false);
+  const [googleReady, setGoogleReady] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
 
   // Phone OTP (dev)
   const [phone, setPhone] = useState("");
@@ -40,6 +46,84 @@ export function AuthView({ onDone }: { onDone: () => void }) {
   useEffect(() => {
     refresh();
   }, []);
+
+  const canUseGoogle = useMemo(
+    () => !!googleClientId && !!authEnabled,
+    [googleClientId, authEnabled]
+  );
+
+  useEffect(() => {
+    if (tab !== "google") return;
+    if (!googleClientId) return;
+    if (!authEnabled) return;
+    if (!googleButtonRef.current) return;
+
+    const init = async () => {
+      try {
+        setGoogleReady(false);
+
+        if (!googleScriptLoadedRef.current) {
+          await new Promise<void>((resolve, reject) => {
+            const existing = document.querySelector(
+              'script[src="https://accounts.google.com/gsi/client"]'
+            );
+            if (existing) {
+              googleScriptLoadedRef.current = true;
+              resolve();
+              return;
+            }
+            const s = document.createElement("script");
+            s.src = "https://accounts.google.com/gsi/client";
+            s.async = true;
+            s.defer = true;
+            s.onload = () => {
+              googleScriptLoadedRef.current = true;
+              resolve();
+            };
+            s.onerror = () =>
+              reject(new Error("Failed to load Google Identity script"));
+            document.head.appendChild(s);
+          });
+        }
+
+        const g = (window as any).google?.accounts?.id;
+        if (!g) throw new Error("Google Identity not available");
+
+        // Clear any previous button
+        googleButtonRef.current!.innerHTML = "";
+
+        g.initialize({
+          client_id: googleClientId,
+          callback: async (resp: any) => {
+            try {
+              setGoogleLoading(true);
+              setError(null);
+              await authGoogle({ idToken: resp.credential });
+              await refresh();
+            } catch (e) {
+              setError(String((e as any)?.message ?? e));
+            } finally {
+              setGoogleLoading(false);
+            }
+          },
+        });
+
+        g.renderButton(googleButtonRef.current, {
+          theme: "outline",
+          size: "large",
+          width: 360,
+          text: "continue_with",
+          shape: "pill",
+        });
+
+        setGoogleReady(true);
+      } catch (e) {
+        setError(String((e as any)?.message ?? e));
+      }
+    };
+
+    init();
+  }, [tab, googleClientId, authEnabled]);
 
   if (loading) {
     return (
@@ -226,42 +310,114 @@ export function AuthView({ onDone }: { onDone: () => void }) {
               </>
             ) : (
               <>
-                <p style={{ marginTop: 0, color: "var(--color-text-secondary)", lineHeight: 1.5 }}>
-                  (DEV) Google JS SDK 없이, ID Token을 붙여넣어 로그인하는 골격입니다.
-                </p>
-                <label style={{ display: "block", fontWeight: 800, marginBottom: 8 }}>Google ID Token</label>
-                <textarea
-                  value={idToken}
-                  onChange={(e) => setIdToken(e.target.value)}
-                  placeholder="eyJhbGciOi..."
-                  rows={6}
-                  style={{
-                    width: "100%",
-                    padding: "14px 14px",
-                    border: "2px solid #D1D5DB",
-                    borderRadius: 14,
-                    fontSize: "0.95rem",
-                    background: "white",
-                    outline: "none",
-                    resize: "none",
-                    lineHeight: 1.5,
-                  }}
-                />
-                <button
-                  className="btn-primary w-full"
-                  style={{ marginTop: 14 }}
-                  onClick={async () => {
-                    setError(null);
-                    try {
-                      await authGoogle({ idToken: idToken.trim() });
-                      await refresh();
-                    } catch (e) {
-                      setError(String((e as any)?.message ?? e));
-                    }
-                  }}
-                >
-                  Google로 로그인
-                </button>
+                {!googleClientId ? (
+                  <div
+                    className="card"
+                    style={{ padding: 16, border: "2px solid #FDE68A" }}
+                  >
+                    <p style={{ margin: 0, color: "#92400E", fontWeight: 800 }}>
+                      Google Client ID가 필요해요
+                    </p>
+                    <p
+                      style={{
+                        marginTop: 8,
+                        marginBottom: 0,
+                        color: "#92400E",
+                        lineHeight: 1.6,
+                      }}
+                    >
+                      웹 환경변수에{" "}
+                      <code style={{ fontWeight: 800 }}>
+                        VITE_GOOGLE_CLIENT_ID
+                      </code>
+                      를 설정하세요.
+                    </p>
+                  </div>
+                ) : !authEnabled ? (
+                  <div
+                    className="card"
+                    style={{ padding: 16, border: "2px solid #FDE68A" }}
+                  >
+                    <p style={{ margin: 0, color: "#92400E", fontWeight: 800 }}>
+                      서버 인증이 꺼져 있어요
+                    </p>
+                    <p
+                      style={{
+                        marginTop: 8,
+                        marginBottom: 0,
+                        color: "#92400E",
+                        lineHeight: 1.6,
+                      }}
+                    >
+                      먼저 서버에서 <code style={{ fontWeight: 800 }}>AUTH_ENABLED=true</code>
+                      를 켜주세요.
+                    </p>
+                  </div>
+                ) : (
+                  <>
+                    <p
+                      style={{
+                        marginTop: 0,
+                        color: "var(--color-text-secondary)",
+                        lineHeight: 1.5,
+                      }}
+                    >
+                      Google 버튼을 눌러 로그인하세요.
+                    </p>
+
+                    <div
+                      className="card"
+                      style={{
+                        padding: 16,
+                        borderRadius: 18,
+                        border: "1px solid #E5E7EB",
+                        background: "white",
+                      }}
+                    >
+                      <div ref={googleButtonRef} />
+                      {!googleReady && (
+                        <p
+                          style={{
+                            marginTop: 10,
+                            marginBottom: 0,
+                            color: "var(--color-text-tertiary)",
+                            fontSize: "0.875rem",
+                          }}
+                        >
+                          버튼을 불러오는 중…
+                        </p>
+                      )}
+                      {googleLoading && (
+                        <p
+                          style={{
+                            marginTop: 10,
+                            marginBottom: 0,
+                            color: "var(--color-text-tertiary)",
+                            fontSize: "0.875rem",
+                          }}
+                        >
+                          로그인 처리 중…
+                        </p>
+                      )}
+                    </div>
+
+                    {!canUseGoogle && (
+                      <p
+                        style={{
+                          marginTop: 10,
+                          marginBottom: 0,
+                          color: "var(--color-text-tertiary)",
+                          fontSize: "0.875rem",
+                          lineHeight: 1.5,
+                        }}
+                      >
+                        로컬 개발에서는 Google Console에{" "}
+                        <code>http://127.0.0.1:5173</code>를 Origin으로 등록해야
+                        합니다.
+                      </p>
+                    )}
+                  </>
+                )}
               </>
             )}
           </div>
