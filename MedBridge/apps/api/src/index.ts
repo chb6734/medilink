@@ -7,6 +7,7 @@ import { prisma } from "@medbridge/db";
 import { ocrTextFromImageBytes } from "./lib/vision";
 import { randomToken, sha256Base64Url } from "./lib/crypto";
 import { summarizeForClinician } from "./lib/gemini";
+import crypto from "node:crypto";
 
 const PORT = Number(process.env.PORT ?? 8787);
 const HOST = process.env.HOST ?? "0.0.0.0";
@@ -34,7 +35,45 @@ await app.register(multipart, {
 
 app.get("/health", async () => ({ ok: true }));
 
+/**
+ * Dev convenience: if DATABASE_URL is not set, fall back to an in-memory store
+ * so the demo flow works without local DB setup.
+ *
+ * In production (NODE_ENV=production), we keep the strict requirement for DB.
+ */
+const useInMemoryStore =
+  !process.env.DATABASE_URL && process.env.NODE_ENV !== "production";
+
+type MemoryRecord = {
+  id: string;
+  patientId: string;
+  recordType: "dispensing_record" | "prescription";
+  createdAt: Date;
+  chiefComplaint?: string;
+  doctorDiagnosis?: string;
+  noteDoctorSaid?: string;
+  meds: Array<{ nameRaw: string; needsVerification: boolean }>;
+  rawText: string | null;
+  geminiSummary: string | null;
+};
+
+type MemoryShare = {
+  id: string;
+  patientId: string;
+  tokenHash: string;
+  expiresAt: Date;
+  revokedAt: Date | null;
+  createdAt: Date;
+};
+
+const memory = {
+  recordsByPatient: new Map<string, MemoryRecord[]>(),
+  sharesByTokenHash: new Map<string, MemoryShare>(),
+  sharesByPatient: new Map<string, MemoryShare[]>(),
+};
+
 function ensureDbConfigured(reply: any) {
+  if (useInMemoryStore) return true;
   if (!process.env.DATABASE_URL) {
     reply
       .code(503)
@@ -42,6 +81,37 @@ function ensureDbConfigured(reply: any) {
     return false;
   }
   return true;
+}
+
+function memAddRecord(r: MemoryRecord) {
+  const arr = memory.recordsByPatient.get(r.patientId) ?? [];
+  arr.unshift(r);
+  memory.recordsByPatient.set(r.patientId, arr.slice(0, 50));
+}
+
+function memRevokeShares(patientId: string) {
+  const arr = memory.sharesByPatient.get(patientId) ?? [];
+  const now = new Date();
+  for (const s of arr) {
+    if (!s.revokedAt && s.expiresAt > now) s.revokedAt = now;
+  }
+  memory.sharesByPatient.set(patientId, arr);
+}
+
+function memCreateShare(patientId: string, tokenHash: string, expiresAt: Date) {
+  const s: MemoryShare = {
+    id: crypto.randomUUID(),
+    patientId,
+    tokenHash,
+    expiresAt,
+    revokedAt: null,
+    createdAt: new Date(),
+  };
+  memory.sharesByTokenHash.set(tokenHash, s);
+  const arr = memory.sharesByPatient.get(patientId) ?? [];
+  arr.unshift(s);
+  memory.sharesByPatient.set(patientId, arr.slice(0, 20));
+  return s;
 }
 
 function parseMedCandidates(text: string) {
@@ -138,6 +208,23 @@ app.post("/api/records", async (req, reply) => {
   const meds = parseMedCandidates(text);
   const geminiSummary = await summarizeForClinician(text);
 
+  if (useInMemoryStore) {
+    const recordId = crypto.randomUUID();
+    memAddRecord({
+      id: recordId,
+      patientId: meta.data.patientId,
+      recordType: meta.data.recordType,
+      createdAt: new Date(),
+      chiefComplaint: meta.data.chiefComplaint,
+      doctorDiagnosis: meta.data.doctorDiagnosis,
+      noteDoctorSaid: meta.data.noteDoctorSaid,
+      meds: meds.map((nameRaw) => ({ nameRaw, needsVerification: false })),
+      rawText: text,
+      geminiSummary,
+    });
+    return { recordId, createdAt: new Date() };
+  }
+
   const patient = await prisma.patient.upsert({
     where: { id: meta.data.patientId },
     update: {},
@@ -210,6 +297,12 @@ app.post("/api/share-tokens", async (req, reply) => {
   const tokenHash = sha256Base64Url(token);
   const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
 
+  if (useInMemoryStore) {
+    memRevokeShares(body.data.patientId);
+    memCreateShare(body.data.patientId, tokenHash, expiresAt);
+    return { token, expiresAt };
+  }
+
   // revoke previous active tokens for this patient
   await prisma.shareToken.updateMany({
     where: {
@@ -239,6 +332,29 @@ app.get("/share/:token", async (req, reply) => {
   if (!params.success) return reply.code(400).send({ error: "invalid_token" });
 
   const tokenHash = sha256Base64Url(params.data.token);
+
+  if (useInMemoryStore) {
+    const share = memory.sharesByTokenHash.get(tokenHash);
+    if (!share || share.revokedAt) return reply.code(404).send({ error: "not_found" });
+    if (share.expiresAt.getTime() <= Date.now()) return reply.code(410).send({ error: "expired" });
+
+    const records = memory.recordsByPatient.get(share.patientId) ?? [];
+    return {
+      patientId: share.patientId,
+      records: records.slice(0, 20).map((r) => ({
+        id: r.id,
+        recordType: r.recordType,
+        createdAt: r.createdAt,
+        chiefComplaint: r.chiefComplaint ?? null,
+        doctorDiagnosis: r.doctorDiagnosis ?? null,
+        noteDoctorSaid: r.noteDoctorSaid ?? null,
+        meds: r.meds,
+        geminiSummary: r.geminiSummary ?? null,
+        rawText: r.rawText ?? null,
+      })),
+    };
+  }
+
   const share = await prisma.shareToken.findUnique({
     where: { tokenHash },
     include: {
