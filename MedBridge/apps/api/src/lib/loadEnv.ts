@@ -8,9 +8,14 @@ import fs from "node:fs";
 const here = path.dirname(new URL(import.meta.url).pathname);
 
 const candidates = [
-  path.resolve(here, "../../.env"), // MedBridge/apps/api/.env
+  // MedBridge/apps/api/.env
+  path.resolve(here, "../../.env"),
   path.resolve(here, "../../.env.local"),
-  path.resolve(here, "../../../../.env"), // MedBridge/.env
+  // MedBridge/apps/.env (some devs prefer putting shared envs here)
+  path.resolve(here, "../../../.env"),
+  path.resolve(here, "../../../.env.local"),
+  // MedBridge/.env
+  path.resolve(here, "../../../../.env"),
   path.resolve(here, "../../../../.env.local"),
 ];
 
@@ -22,5 +27,3 @@ for (const p of candidates) {
     // ignore
   }
 }
-
-

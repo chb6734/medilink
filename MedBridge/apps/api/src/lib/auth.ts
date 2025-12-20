@@ -17,7 +17,8 @@ declare module "fastify" {
 }
 
 export function isAuthEnabled() {
-  return process.env.AUTH_ENABLED === "true";
+  const v = (process.env.AUTH_ENABLED ?? "").trim().toLowerCase();
+  return v === "true" || v === "1" || v === "yes" || v === "y";
 }
 
 export async function registerAuth(app: FastifyInstance) {

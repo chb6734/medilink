@@ -77,12 +77,10 @@ app.post("/api/auth/google", async (req: any, reply) => {
     };
     return { ok: true };
   } catch (e) {
-    return reply
-      .code(401)
-      .send({
-        error: "google_verify_failed",
-        details: String((e as any)?.message ?? e),
-      });
+    return reply.code(401).send({
+      error: "google_verify_failed",
+      details: String((e as any)?.message ?? e),
+    });
   }
 });
 
