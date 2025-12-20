@@ -56,5 +56,12 @@ Next.js에서는 `NEXT_PUBLIC_` prefix가 붙은 값만 브라우저 번들에 �
 
 ### 4.2 Phone 로그인(SMS OTP)
 
-현재는 **DEV 골격**으로, OTP를 서버 로그에 출력합니다.  
+기본은 **DEV**로 OTP를 서버 로그에 출력합니다.  
 운영에서는 SMS 벤더로 교체하세요.
+
+- **SMS_PROVIDER**: `dev` (기본) / `twilio`
+
+#### Twilio (옵션)
+- **TWILIO_ACCOUNT_SID**
+- **TWILIO_AUTH_TOKEN**
+- **TWILIO_FROM** (발신번호)

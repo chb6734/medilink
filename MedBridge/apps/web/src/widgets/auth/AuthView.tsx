@@ -1,3 +1,4 @@
+import Script from "next/script";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   authGoogle,
@@ -20,7 +21,6 @@ export function AuthView({ onDone }: { onDone: () => void }) {
     process.env.NEXT_PUBLIC_GOOGLE_OAUTH_CLIENT_ID ??
     "";
   const googleButtonRef = useRef<HTMLDivElement | null>(null);
-  const googleScriptLoadedRef = useRef(false);
   const [googleReady, setGoogleReady] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
 
@@ -52,77 +52,54 @@ export function AuthView({ onDone }: { onDone: () => void }) {
     [googleClientId, authEnabled]
   );
 
-  useEffect(() => {
+  const initGoogleButton = async () => {
     if (tab !== "google") return;
     if (!googleClientId) return;
     if (!authEnabled) return;
     if (!googleButtonRef.current) return;
 
-    const init = async () => {
-      try {
-        setGoogleReady(false);
+    try {
+      setGoogleReady(false);
 
-        if (!googleScriptLoadedRef.current) {
-          await new Promise<void>((resolve, reject) => {
-            const existing = document.querySelector(
-              'script[src="https://accounts.google.com/gsi/client"]'
-            );
-            if (existing) {
-              googleScriptLoadedRef.current = true;
-              resolve();
-              return;
-            }
-            const s = document.createElement("script");
-            s.src = "https://accounts.google.com/gsi/client";
-            s.async = true;
-            s.defer = true;
-            s.onload = () => {
-              googleScriptLoadedRef.current = true;
-              resolve();
-            };
-            s.onerror = () =>
-              reject(new Error("Failed to load Google Identity script"));
-            document.head.appendChild(s);
-          });
-        }
+      const g = (window as any).google?.accounts?.id;
+      if (!g) throw new Error("Google Identity not available");
 
-        const g = (window as any).google?.accounts?.id;
-        if (!g) throw new Error("Google Identity not available");
+      // Clear any previous button
+      googleButtonRef.current!.innerHTML = "";
 
-        // Clear any previous button
-        googleButtonRef.current!.innerHTML = "";
+      g.initialize({
+        client_id: googleClientId,
+        callback: async (resp: any) => {
+          try {
+            setGoogleLoading(true);
+            setError(null);
+            await authGoogle({ idToken: resp.credential });
+            await refresh();
+          } catch (e) {
+            setError(String((e as any)?.message ?? e));
+          } finally {
+            setGoogleLoading(false);
+          }
+        },
+      });
 
-        g.initialize({
-          client_id: googleClientId,
-          callback: async (resp: any) => {
-            try {
-              setGoogleLoading(true);
-              setError(null);
-              await authGoogle({ idToken: resp.credential });
-              await refresh();
-            } catch (e) {
-              setError(String((e as any)?.message ?? e));
-            } finally {
-              setGoogleLoading(false);
-            }
-          },
-        });
+      g.renderButton(googleButtonRef.current, {
+        theme: "outline",
+        size: "large",
+        width: 360,
+        text: "continue_with",
+        shape: "pill",
+      });
 
-        g.renderButton(googleButtonRef.current, {
-          theme: "outline",
-          size: "large",
-          width: 360,
-          text: "continue_with",
-          shape: "pill",
-        });
+      setGoogleReady(true);
+    } catch (e) {
+      setError(String((e as any)?.message ?? e));
+    }
+  };
 
-        setGoogleReady(true);
-      } catch (e) {
-        setError(String((e as any)?.message ?? e));
-      }
-    };
-
-    init();
+  useEffect(() => {
+    initGoogleButton();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tab, googleClientId, authEnabled]);
 
   if (loading) {
@@ -211,6 +188,16 @@ export function AuthView({ onDone }: { onDone: () => void }) {
               {error}
             </p>
           </div>
+        )}
+
+        {tab === "google" && canUseGoogle && (
+          <Script
+            src="https://accounts.google.com/gsi/client"
+            strategy="afterInteractive"
+            onLoad={() => {
+              initGoogleButton();
+            }}
+          />
         )}
 
         {user ? (

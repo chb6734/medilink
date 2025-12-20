@@ -1,5 +1,6 @@
 import {
   Body,
+  BadRequestException,
   Controller,
   Get,
   Logger,
@@ -42,7 +43,7 @@ export class AuthController {
     if (!isAuthEnabled()) throw new NotFoundException("auth_disabled");
 
     const parsed = z.object({ idToken: z.string().min(10) }).safeParse(body);
-    if (!parsed.success) throw new UnauthorizedException("invalid_body");
+    if (!parsed.success) throw new BadRequestException("invalid_body");
 
     try {
       const client = getGoogleClient();
@@ -75,7 +76,7 @@ export class AuthController {
     const parsed = z
       .object({ phoneE164: z.string().min(8).max(20) })
       .safeParse(body);
-    if (!parsed.success) throw new UnauthorizedException("invalid_body");
+    if (!parsed.success) throw new BadRequestException("invalid_body");
 
     const challengeId = crypto.randomUUID();
     const code = randomOtpCode();
@@ -87,8 +88,29 @@ export class AuthController {
       tries: 0,
     });
 
-    // DEV: print OTP to server log. Replace with SMS vendor in production.
-    log.warn(`DEV_OTP_CODE phone=${parsed.data.phoneE164} code=${code}`);
+    // SMS provider (default: dev)
+    const provider = (process.env.SMS_PROVIDER ?? "dev").toLowerCase();
+    if (provider === "dev") {
+      // DEV: print OTP to server log. Replace with SMS vendor in production.
+      log.warn(`DEV_OTP_CODE phone=${parsed.data.phoneE164} code=${code}`);
+    } else if (provider === "twilio") {
+      const accountSid = process.env.TWILIO_ACCOUNT_SID;
+      const authToken = process.env.TWILIO_AUTH_TOKEN;
+      const from = process.env.TWILIO_FROM;
+      if (!accountSid || !authToken || !from) {
+        throw new UnauthorizedException("sms_provider_not_configured");
+      }
+      // Lazy import to keep dev footprint light
+      const { default: twilio } = await import("twilio");
+      const client = twilio(accountSid, authToken);
+      await client.messages.create({
+        to: parsed.data.phoneE164,
+        from,
+        body: `[MedBridge] 인증번호: ${code} (5분 내 입력)`,
+      });
+    } else {
+      throw new UnauthorizedException("unsupported_sms_provider");
+    }
 
     return { challengeId, expiresAt };
   }
@@ -100,7 +122,7 @@ export class AuthController {
     const parsed = z
       .object({ challengeId: z.string().uuid(), code: z.string().min(4).max(10) })
       .safeParse(body);
-    if (!parsed.success) throw new UnauthorizedException("invalid_body");
+    if (!parsed.success) throw new BadRequestException("invalid_body");
 
     const entry = otpStore.get(parsed.data.challengeId);
     if (!entry) throw new NotFoundException("challenge_not_found");
