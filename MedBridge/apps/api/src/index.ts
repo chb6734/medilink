@@ -44,6 +44,12 @@ app.get("/health", async () => ({ ok: true }));
 const useInMemoryStore =
   !process.env.DATABASE_URL && process.env.NODE_ENV !== "production";
 
+// Dev-safe guard: avoid constructing Vision client unless explicitly configured.
+// This prevents google-auth ADC lookup from crashing the dev server when creds are missing.
+const visionEnabled =
+  process.env.VISION_ENABLED === "true" ||
+  !!process.env.GOOGLE_APPLICATION_CREDENTIALS;
+
 type MemoryRecord = {
   id: string;
   patientId: string;
@@ -143,6 +149,11 @@ app.post("/api/records/preview-ocr", async (req, reply) => {
   const buf = await file.toBuffer();
   let text = "";
   let overallConfidence: number | null = null;
+  if (useInMemoryStore && !visionEnabled) {
+    text =
+      "OCR 미설정(개발 모드) — 실제 배포에서는 Google Cloud Vision 설정이 필요합니다.";
+    overallConfidence = null;
+  } else {
   try {
     const r = await ocrTextFromImageBytes(buf);
     text = r.text;
@@ -159,6 +170,7 @@ app.post("/api/records/preview-ocr", async (req, reply) => {
       details: String((e as any)?.message ?? e),
     });
     }
+  }
   }
   const meds = parseMedCandidates(text);
 
@@ -200,6 +212,10 @@ app.post("/api/records", async (req, reply) => {
 
   const buf = await file.toBuffer();
   let text = "";
+  if (useInMemoryStore && !visionEnabled) {
+    text =
+      "OCR 미설정(개발 모드) — 실제 배포에서는 Google Cloud Vision 설정이 필요합니다.";
+  } else {
   try {
     const r = await ocrTextFromImageBytes(buf);
     text = r.text;
@@ -213,6 +229,7 @@ app.post("/api/records", async (req, reply) => {
       details: String((e as any)?.message ?? e),
     });
     }
+  }
   }
 
   const meds = parseMedCandidates(text);
