@@ -49,7 +49,7 @@ export async function getRecordCount(params: {
 
   return await fetchJson<{ count: number; days: number; since: string }>(
     `/api/records/count?${qs.toString()}`,
-    { method: "GET" },
+    { method: "GET" }
   );
 }
 
@@ -63,7 +63,7 @@ export async function createShareToken(params: {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify(params),
-    },
+    }
   );
 }
 
@@ -76,7 +76,7 @@ export async function fetchShare(token: string) {
 export async function authMe() {
   return await fetchJson<{ authEnabled: boolean; user: unknown }>(
     "/api/auth/me",
-    { method: "GET" },
+    { method: "GET" }
   );
 }
 
@@ -99,7 +99,7 @@ export async function authPhoneStart(params: { phoneE164: string }) {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify(params),
-    },
+    }
   );
 }
 
@@ -113,5 +113,3 @@ export async function authPhoneVerify(params: {
     body: JSON.stringify(params),
   });
 }
-
-

@@ -1,6 +1,8 @@
-import { useState, useEffect } from 'react';
-import { ArrowLeft, QrCode, RefreshCw, Clock, CheckCircle } from 'lucide-react';
-import { QRCodeSVG } from 'qrcode.react';
+"use client";
+
+import { useEffect, useMemo, useState } from "react";
+import { ArrowLeft, QrCode, RefreshCw, Clock, CheckCircle } from "lucide-react";
+import { QRCodeSVG } from "qrcode.react";
 
 interface ShareViewProps {
   token: string;
@@ -10,6 +12,10 @@ interface ShareViewProps {
 
 export function ShareView({ token, onBack, onRegenerateToken }: ShareViewProps) {
   const [timeLeft, setTimeLeft] = useState(600); // 10 minutes
+  const origin = useMemo(
+    () => (typeof window === "undefined" ? "" : window.location.origin),
+    [],
+  );
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -172,7 +178,7 @@ export function ShareView({ token, onBack, onRegenerateToken }: ShareViewProps) 
             marginBottom: '24px'
           }}>
             <QRCodeSVG 
-              value={`${window.location.origin}/doctor/${encodeURIComponent(token)}`}
+              value={`${origin}/doctor/${encodeURIComponent(token)}`}
               size={240}
               level="M"
             />
