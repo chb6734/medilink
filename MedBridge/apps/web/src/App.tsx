@@ -122,56 +122,58 @@ export default function App() {
         <AuthView onDone={() => (window.location.hash = "")} />
       )}
       {route.kind === "login" ? null : (
-      {currentView === 'home' && (
-        <Home 
-          onNavigate={handleViewChange}
-          recordCount={prescriptionRecords.length}
-        />
-      )}
-      {currentView === 'quick-record' && (
-        <QuickRecord 
-          onBack={() => setCurrentView('home')}
-          onRecordSaved={handleAddRecord}
-        />
-      )}
-      {currentView === 'first-result' && latestRecord && (
-        <FirstResult
-          record={latestRecord}
-          onContinue={() => setCurrentView('home')}
-        />
-      )}
-      {currentView === 'questionnaire' && (
-        <Questionnaire 
-          onBack={() => setCurrentView('home')}
-          onComplete={handleQuestionnaireComplete}
-        />
-      )}
-      {currentView === 'share' && shareToken && (
-        <ShareView 
-          token={shareToken}
-          onBack={() => setCurrentView('home')}
-          onRegenerateToken={() => {
-            const newToken = Math.random().toString(36).substring(2, 15);
-            setShareToken(newToken);
-          }}
-        />
-      )}
-      {currentView === 'doctor' && (
-        doctorToken ? (
-          <DoctorShare token={doctorToken} />
-        ) : (
-          <DoctorView 
-            records={prescriptionRecords}
-            questionnaireData={questionnaireData}
-          />
-        )
-      )}
-      {currentView === 'history' && (
-        <MedicationHistory 
-          records={prescriptionRecords}
-          onBack={() => setCurrentView('home')}
-        />
-      )}
+        <>
+          {currentView === 'home' && (
+            <Home 
+              onNavigate={handleViewChange}
+              recordCount={prescriptionRecords.length}
+            />
+          )}
+          {currentView === 'quick-record' && (
+            <QuickRecord 
+              onBack={() => setCurrentView('home')}
+              onRecordSaved={handleAddRecord}
+            />
+          )}
+          {currentView === 'first-result' && latestRecord && (
+            <FirstResult
+              record={latestRecord}
+              onContinue={() => setCurrentView('home')}
+            />
+          )}
+          {currentView === 'questionnaire' && (
+            <Questionnaire 
+              onBack={() => setCurrentView('home')}
+              onComplete={handleQuestionnaireComplete}
+            />
+          )}
+          {currentView === 'share' && shareToken && (
+            <ShareView 
+              token={shareToken}
+              onBack={() => setCurrentView('home')}
+              onRegenerateToken={() => {
+                const newToken = Math.random().toString(36).substring(2, 15);
+                setShareToken(newToken);
+              }}
+            />
+          )}
+          {currentView === 'doctor' && (
+            doctorToken ? (
+              <DoctorShare token={doctorToken} />
+            ) : (
+              <DoctorView 
+                records={prescriptionRecords}
+                questionnaireData={questionnaireData}
+              />
+            )
+          )}
+          {currentView === 'history' && (
+            <MedicationHistory 
+              records={prescriptionRecords}
+              onBack={() => setCurrentView('home')}
+            />
+          )}
+        </>
       )}
     </div>
   );
