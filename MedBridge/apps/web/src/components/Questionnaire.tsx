@@ -105,7 +105,7 @@ export function Questionnaire({ onBack, onComplete }: QuestionnaireProps) {
   };
 
   const updateFormData = (key: string, value: string) => {
-    setFormData({ ...formData, [key]: value });
+    setFormData((prev) => ({ ...prev, [key]: value }));
   };
 
   const isCurrentStepValid = () => {
