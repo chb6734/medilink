@@ -39,7 +39,7 @@ export function Questionnaire({ onBack, onComplete }: QuestionnaireProps) {
         required: true,
         title: "증상이 어떻게 변했나요?",
         subtitle: "최근 며칠 사이 경과를 선택해주세요",
-        options: [
+      options: [
           "점점 좋아지고 있어요",
           "비슷해요",
           "점점 나빠지고 있어요",
@@ -52,7 +52,7 @@ export function Questionnaire({ onBack, onComplete }: QuestionnaireProps) {
         required: true,
         title: "처방받은 약을 드셨나요?",
         subtitle: "복약 여부는 진료 판단에 큰 도움이 됩니다",
-        options: [
+      options: [
           "처방받은 적 없음",
           "빠짐없이 먹었어요",
           "가끔 빠뜨렸어요",
@@ -137,7 +137,7 @@ export function Questionnaire({ onBack, onComplete }: QuestionnaireProps) {
           background: "transparent",
         }}
       >
-        <button
+        <button 
           onClick={handleBackStep}
           style={{
             background: "none",
@@ -152,7 +152,7 @@ export function Questionnaire({ onBack, onComplete }: QuestionnaireProps) {
         >
           <ArrowLeft className="w-5 h-5" />
         </button>
-
+        
         <div style={{ marginTop: "10px", marginBottom: "10px" }}>
           <p
             style={{
@@ -180,7 +180,7 @@ export function Questionnaire({ onBack, onComplete }: QuestionnaireProps) {
               height: "100%",
               background:
                 "linear-gradient(90deg, var(--color-accent) 0%, #2563EB 100%)",
-              width: `${progress}%`,
+            width: `${progress}%`,
               transition: "width 0.3s ease",
               boxShadow: "0 0 0 1px rgba(37,99,235,0.15) inset",
             }}
@@ -209,7 +209,7 @@ export function Questionnaire({ onBack, onComplete }: QuestionnaireProps) {
                 }}
               >
                 방문하실 병원 선택
-              </h1>
+          </h1>
               <p
                 style={{
                   color: "var(--color-text-secondary)",
@@ -230,15 +230,15 @@ export function Questionnaire({ onBack, onComplete }: QuestionnaireProps) {
                     color: "var(--color-text-tertiary)",
                   }}
                 />
-                <input
+          <input
                   value={hospitalQuery}
                   onChange={(e) => {
                     setHospitalQuery(e.target.value);
                     updateFormData("hospitalName", e.target.value);
                   }}
                   placeholder="병원 또는 의원 검색..."
-                  autoFocus
-                  style={{
+            autoFocus
+            style={{
                     width: "100%",
                     padding: "14px 14px 14px 44px",
                     border: "2px solid #D1D5DB",
@@ -517,7 +517,7 @@ export function Questionnaire({ onBack, onComplete }: QuestionnaireProps) {
                 >
                   증상 상세 (선택)
                 </div>
-                <textarea
+          <textarea
                   value={symptomDetail}
                   onChange={(e) => {
                     setSymptomDetail(e.target.value);
@@ -525,7 +525,7 @@ export function Questionnaire({ onBack, onComplete }: QuestionnaireProps) {
                   }}
                   placeholder="증상에 대해 더 자세히 설명해주세요"
                   rows={4}
-                  style={{
+            style={{
                     width: "100%",
                     padding: "14px 14px",
                     border: "2px solid #D1D5DB",
@@ -578,6 +578,29 @@ export function Questionnaire({ onBack, onComplete }: QuestionnaireProps) {
                     (e.currentTarget.style.borderColor = "#D1D5DB")
                   }
                 />
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 10 }}>
+                  {["오늘", "1-2일 전", "3-7일 전", "1-2주 전", "2주 이상"].map((t) => {
+                    const selected = (formData.symptomStart ?? "") === t;
+              return (
+                <button
+                        key={t}
+                        type="button"
+                        onClick={() => updateFormData("symptomStart", t)}
+                        style={{
+                          padding: "10px 12px",
+                          borderRadius: 999,
+                          border: selected ? "2px solid var(--color-accent)" : "1px solid #E5E7EB",
+                          background: selected ? "var(--color-accent-light)" : "white",
+                          fontWeight: 800,
+                          fontSize: "0.95rem",
+                          cursor: "pointer",
+                        }}
+                      >
+                        {t}
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
             </>
           )}
@@ -648,10 +671,10 @@ export function Questionnaire({ onBack, onComplete }: QuestionnaireProps) {
                           flexShrink: 0,
                         }}
                       />
-                    </button>
-                  );
-                })}
-              </div>
+                </button>
+              );
+            })}
+          </div>
             </>
           )}
 
