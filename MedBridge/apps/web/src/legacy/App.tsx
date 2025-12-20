@@ -1,13 +1,12 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { Home } from "./components/Home";
 import { QuickRecord } from "./components/QuickRecord";
 import { FirstResult } from "./components/FirstResult";
 import { Questionnaire } from "./components/Questionnaire";
 import { ShareView } from "./components/ShareView";
 import { DoctorView } from "./components/DoctorView";
-import { DoctorShare } from "./components/DoctorShare";
 import { AuthView } from "./components/AuthView";
 import { MedicationHistory } from "./components/MedicationHistory";
 import { getOrCreatePatientId } from "./lib/patient";
@@ -68,43 +67,15 @@ export default function App() {
   const [latestRecord, setLatestRecord] = useState<PrescriptionRecord | null>(
     null
   );
-  const [doctorToken, setDoctorToken] = useState<string | null>(null);
   const [pendingShareAfterLogin, setPendingShareAfterLogin] = useState(false);
+  const [showLogin, setShowLogin] = useState(false);
 
   const [patientId, setPatientId] = useState<string | null>(null);
-
-  const [hashRoute, setHashRoute] = useState("");
 
   useEffect(() => {
     // SSR/SSG 안전: window/localStorage 접근은 클라이언트에서만
     setPatientId(getOrCreatePatientId());
-    setHashRoute(window.location.hash || "");
-
-    const onHashChange = () => setHashRoute(window.location.hash || "");
-    window.addEventListener("hashchange", onHashChange);
-    return () => window.removeEventListener("hashchange", onHashChange);
   }, []);
-
-  const route = useMemo(() => {
-    if (hashRoute.startsWith("#/login")) return { kind: "login" as const };
-    const m = hashRoute.match(/^#\/doctor\/(.+)$/);
-    if (m?.[1])
-      return { kind: "doctor" as const, token: decodeURIComponent(m[1]) };
-    return { kind: "app" as const };
-  }, [hashRoute]);
-
-  useEffect(() => {
-    if (route.kind === "doctor") {
-      setDoctorToken(route.token);
-      setCurrentView("doctor");
-    }
-    if (route.kind === "app" && doctorToken) {
-      // returning back from doctor route
-      setDoctorToken(null);
-      setCurrentView("home");
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [route.kind]);
 
   const handleAddRecord = (record: PrescriptionRecord) => {
     setPrescriptionRecords([...prescriptionRecords, record]);
@@ -125,7 +96,7 @@ export default function App() {
       // if auth is enabled on server, unauthenticated calls may fail; send user to login
       if (msg.includes("401") || msg.includes("unauthorized")) {
         setPendingShareAfterLogin(true);
-        window.location.hash = "#/login";
+        setShowLogin(true);
         return;
       }
       // fallback (offline/dev)
@@ -136,7 +107,7 @@ export default function App() {
   };
 
   const handleAuthDone = async () => {
-    window.location.hash = "";
+    setShowLogin(false);
     if (!pendingShareAfterLogin) return;
     setPendingShareAfterLogin(false);
     if (!questionnaireData) return;
@@ -160,12 +131,12 @@ export default function App() {
 
   return (
     <div className="app-container">
-      {route.kind === "login" && <AuthView onDone={handleAuthDone} />}
-      {route.kind === "login" ? null : (
+      {showLogin ? <AuthView onDone={handleAuthDone} /> : (
         <>
           {currentView === "home" && (
             <Home
               onNavigate={handleViewChange}
+              onLogin={() => setShowLogin(true)}
               recordCount={prescriptionRecords.length}
             />
           )}
@@ -202,7 +173,7 @@ export default function App() {
                     const msg = String((e as any)?.message ?? e);
                     if (msg.includes("401") || msg.includes("unauthorized")) {
                       setPendingShareAfterLogin(true);
-                      window.location.hash = "#/login";
+                      setShowLogin(true);
                       return;
                     }
                     const newToken = Math.random()
@@ -214,15 +185,12 @@ export default function App() {
               }}
             />
           )}
-          {currentView === "doctor" &&
-            (doctorToken ? (
-              <DoctorShare token={doctorToken} />
-            ) : (
-              <DoctorView
-                records={prescriptionRecords}
-                questionnaireData={questionnaireData}
-              />
-            ))}
+          {currentView === "doctor" && (
+            <DoctorView
+              records={prescriptionRecords}
+              questionnaireData={questionnaireData}
+            />
+          )}
           {currentView === "history" && (
             <MedicationHistory
               records={prescriptionRecords}

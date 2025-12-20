@@ -3,10 +3,11 @@ import { ViewType } from "../App";
 
 interface HomeProps {
   onNavigate: (view: ViewType) => void;
+  onLogin: () => void;
   recordCount: number;
 }
 
-export function Home({ onNavigate, recordCount }: HomeProps) {
+export function Home({ onNavigate, onLogin, recordCount }: HomeProps) {
   return (
     <div className="min-h-screen pb-24">
       {/* Header with Greeting */}
@@ -39,9 +40,7 @@ export function Home({ onNavigate, recordCount }: HomeProps) {
             <h1 style={{ color: "white", marginBottom: "24px" }}>연속진료</h1>
           </div>
           <button
-            onClick={() => {
-              window.location.hash = "#/login";
-            }}
+            onClick={onLogin}
             style={{
               background: "rgba(255,255,255,0.2)",
               border: "1px solid rgba(255,255,255,0.25)",
