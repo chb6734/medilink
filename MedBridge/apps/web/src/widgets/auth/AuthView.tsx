@@ -476,11 +476,10 @@ export function AuthView({
             onMouseEnter={() => setSocialHover("google")}
             onMouseLeave={() => setSocialHover(null)}
           >
-            {/* Visual layer (matches design) */}
+            {/* Google GIS button (visible + clickable). Wrapper handles hover feedback. */}
             <div
               style={{
                 width: "100%",
-                padding: "16px",
                 background:
                   socialHover === "google" ? "#F8FBFF" : "var(--color-surface)",
                 border:
@@ -488,49 +487,32 @@ export function AuthView({
                     ? "2px solid #4285F4"
                     : "2px solid var(--color-border)",
                 borderRadius: "14px",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                gap: "12px",
-                fontSize: "1rem",
-                fontWeight: "600",
-                color: "var(--color-text-primary)",
                 transition: "all 0.2s",
                 minHeight: "56px",
-                pointerEvents: "none",
                 boxShadow:
                   socialHover === "google"
                     ? "0 8px 18px rgba(66, 133, 244, 0.14)"
                     : "0 2px 8px rgba(40, 91, 170, 0.06)",
                 transform:
-                  socialHover === "google" ? "translateY(-1px)" : "translateY(0)",
+                  socialHover === "google"
+                    ? "translateY(-1px)"
+                    : "translateY(0)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                cursor: canUseGoogle ? "pointer" : "default",
+                opacity: canUseGoogle ? 1 : 0.6,
               }}
             >
-              <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-                <path
-                  d="M19.8 10.2273C19.8 9.51818 19.7364 8.83636 19.6182 8.18182H10V12.05H15.4727C15.2273 13.3 14.5227 14.3591 13.4727 15.0682V17.5773H16.7636C18.6727 15.8318 19.8 13.2727 19.8 10.2273Z"
-                  fill="#4285F4"
-                />
-                <path
-                  d="M10 20C12.7 20 14.9636 19.1045 16.7636 17.5773L13.4727 15.0682C12.5909 15.6682 11.4455 16.0227 10 16.0227C7.39545 16.0227 5.19091 14.2636 4.40455 11.9H0.995453V14.4909C2.78636 18.0591 6.10909 20 10 20Z"
-                  fill="#34A853"
-                />
-                <path
-                  d="M4.40455 11.9C4.20455 11.3 4.09091 10.6591 4.09091 10C4.09091 9.34091 4.20455 8.7 4.40455 8.1V5.50909H0.995453C0.359091 6.77273 0 8.19545 0 10C0 11.8045 0.359091 13.2273 0.995453 14.4909L4.40455 11.9Z"
-                  fill="#FBBC05"
-                />
-                <path
-                  d="M10 3.97727C11.5682 3.97727 12.9682 4.48182 14.0682 5.52727L17.0227 2.57273C14.9591 0.636364 12.6955 -0.5 10 -0.5C6.10909 -0.5 2.78636 1.44091 0.995453 5.00909L4.40455 7.6C5.19091 5.23636 7.39545 3.97727 10 3.97727Z"
-                  fill="#EA4335"
-                />
-              </svg>
-              구글로 계속하기
+              <div
+                ref={googleButtonRef}
+                style={{
+                  width: "100%",
+                  display: "flex",
+                  justifyContent: "center",
+                }}
+              />
             </div>
-            {/* Real GIS button (hidden but clickable) */}
-            <div
-              ref={googleButtonRef}
-              style={{ position: "absolute", inset: 0, opacity: 0.001 }}
-            />
           </div>
 
           <div
@@ -564,7 +546,9 @@ export function AuthView({
                     ? "0 8px 18px rgba(0,0,0,0.08)"
                     : "0 2px 8px rgba(40, 91, 170, 0.06)",
                 transform:
-                  socialHover === "kakao" ? "translateY(-1px)" : "translateY(0)",
+                  socialHover === "kakao"
+                    ? "translateY(-1px)"
+                    : "translateY(0)",
               }}
             >
               <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
@@ -608,7 +592,9 @@ export function AuthView({
                     ? "0 8px 18px rgba(0,0,0,0.08)"
                     : "0 2px 8px rgba(40, 91, 170, 0.06)",
                 transform:
-                  socialHover === "naver" ? "translateY(-1px)" : "translateY(0)",
+                  socialHover === "naver"
+                    ? "translateY(-1px)"
+                    : "translateY(0)",
               }}
             >
               <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
