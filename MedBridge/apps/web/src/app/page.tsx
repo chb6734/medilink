@@ -51,6 +51,7 @@ export default function HomePage() {
         onQuickRecord={() => router.push("/quick-record")}
         onQuestionnaire={() => router.push("/questionnaire")}
         onHistory={() => router.push("/")}
+        onDoctorPreview={() => router.push("/doctor-preview")}
       />
     </div>
   );

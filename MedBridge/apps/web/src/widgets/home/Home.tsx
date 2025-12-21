@@ -4,6 +4,7 @@ interface HomeProps {
   onQuickRecord: () => void;
   onQuestionnaire: () => void;
   onHistory: () => void;
+  onDoctorPreview?: () => void;
   onLogin: () => void;
   onLogout: () => void;
   recordCount: number;
@@ -14,6 +15,7 @@ export function Home({
   onQuickRecord,
   onQuestionnaire,
   onHistory,
+  onDoctorPreview,
   onLogin,
   onLogout,
   recordCount,
@@ -339,6 +341,35 @@ export function Home({
           <p style={{ fontSize: "0.875rem", opacity: 0.85, lineHeight: "1.5" }}>
             조제내역서를 촬영하여 약 기록을 관리하세요
           </p>
+
+          {onDoctorPreview && (
+            <button
+              onClick={onDoctorPreview}
+              style={{
+                marginTop: 16,
+                width: "100%",
+                padding: "12px 14px",
+                borderRadius: 14,
+                border: "1px solid rgba(255,255,255,0.28)",
+                background: "rgba(255,255,255,0.16)",
+                color: "white",
+                fontWeight: 700,
+                cursor: "pointer",
+                transition: "all 0.2s",
+                backdropFilter: "blur(10px)",
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = "rgba(255,255,255,0.22)";
+                e.currentTarget.style.transform = "translateY(-1px)";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = "rgba(255,255,255,0.16)";
+                e.currentTarget.style.transform = "translateY(0)";
+              }}
+            >
+              환자 진료 요약 미리보기
+            </button>
+          )}
         </div>
       </div>
     </div>
