@@ -73,9 +73,11 @@ export function AuthView({
     "";
 
   const googleWrapRef = useRef<HTMLDivElement | null>(null);
-  const googleButtonRef = useRef<HTMLDivElement | null>(null);
+  const googleButtonOuterRef = useRef<HTMLDivElement | null>(null);
+  const googleButtonInnerRef = useRef<HTMLDivElement | null>(null);
   const [googleReady, setGoogleReady] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
+  const [googleScaleX, setGoogleScaleX] = useState(1);
 
   const [phone, setPhone] = useState("");
   const [challengeId, setChallengeId] = useState<string | null>(null);
@@ -120,7 +122,7 @@ export function AuthView({
   const initGoogleButton = async () => {
     if (!googleClientId) return;
     if (!authEnabled) return;
-    if (!googleButtonRef.current) return;
+    if (!googleButtonInnerRef.current) return;
     try {
       setGoogleReady(false);
       const g = (
@@ -128,7 +130,7 @@ export function AuthView({
       ).google?.accounts?.id;
       if (!g) throw new Error("Google Identity not available");
 
-      googleButtonRef.current.innerHTML = "";
+      googleButtonInnerRef.current.innerHTML = "";
 
       g.initialize({
         client_id: googleClientId,
@@ -146,18 +148,23 @@ export function AuthView({
         },
       });
 
-      const width =
+      const wrapWidth =
         googleWrapRef.current?.getBoundingClientRect?.().width ??
-        googleButtonRef.current.getBoundingClientRect().width ??
+        googleButtonOuterRef.current?.getBoundingClientRect?.().width ??
         360;
-      const buttonWidth = Math.max(260, Math.round(width));
 
-      g.renderButton(googleButtonRef.current, {
+      // GIS 버튼 자체 폭이 제한되어(대략 200~400px) full-width가 안 되므로,
+      // baseWidth로 렌더 후 X축 스케일링으로 컨테이너 폭에 맞춥니다.
+      const baseWidth = Math.max(260, Math.min(400, Math.round(wrapWidth)));
+      const scaleX = wrapWidth / baseWidth;
+      setGoogleScaleX(Number.isFinite(scaleX) && scaleX > 0 ? scaleX : 1);
+
+      g.renderButton(googleButtonInnerRef.current, {
         theme: "outline",
         size: "large",
         text: "continue_with",
         shape: "pill",
-        width: buttonWidth,
+        width: baseWidth,
       });
 
       setGoogleReady(true);
@@ -505,13 +512,23 @@ export function AuthView({
               }}
             >
               <div
-                ref={googleButtonRef}
                 style={{
                   width: "100%",
                   display: "flex",
                   justifyContent: "center",
+                  alignItems: "center",
                 }}
-              />
+                ref={googleButtonOuterRef}
+              >
+                <div
+                  ref={googleButtonInnerRef}
+                  style={{
+                    transform: `scaleX(${googleScaleX})`,
+                    transformOrigin: "center",
+                    display: "inline-block",
+                  }}
+                />
+              </div>
             </div>
           </div>
 
