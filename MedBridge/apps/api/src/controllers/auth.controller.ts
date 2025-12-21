@@ -6,14 +6,17 @@ import {
   Logger,
   NotFoundException,
   Post,
+  Query,
   Req,
+  Res,
   UnauthorizedException,
 } from '@nestjs/common';
-import type { Request } from 'express';
+import type { Request, Response } from 'express';
 import crypto from 'node:crypto';
 import { z } from 'zod';
 import {
   getGoogleClient,
+  getGoogleOAuthClient,
   isAuthEnabled,
   randomOtpCode,
   sha256,
@@ -65,6 +68,126 @@ export class AuthController {
       throw new UnauthorizedException(
         `google_verify_failed: ${String((e as Error)?.message ?? e)}`,
       );
+    }
+  }
+
+  // Google login (Custom button) - OAuth 2.0 Authorization Code Flow
+  @Get('/api/auth/google/start')
+  googleStart(
+    @Req() req: Request,
+    @Res() res: Response,
+    @Query('returnTo') returnTo?: string,
+  ) {
+    if (!isAuthEnabled()) throw new NotFoundException('auth_disabled');
+
+    // Create session + state
+    const state = crypto.randomUUID();
+    req.session.googleOAuth = {
+      state,
+      returnTo: typeof returnTo === 'string' ? returnTo : undefined,
+      createdAt: Date.now(),
+    };
+
+    let client;
+    try {
+      client = getGoogleOAuthClient();
+    } catch (e) {
+      throw new BadRequestException(
+        `google_oauth_not_configured: ${String((e as Error)?.message ?? e)}`,
+      );
+    }
+
+    const url = client.generateAuthUrl({
+      access_type: 'offline',
+      scope: ['openid', 'email', 'profile'],
+      state,
+      prompt: 'select_account',
+    });
+
+    return res.redirect(url);
+  }
+
+  @Get('/api/auth/google/callback')
+  async googleCallback(
+    @Req() req: Request,
+    @Res() res: Response,
+    @Query() query: any,
+  ) {
+    if (!isAuthEnabled()) throw new NotFoundException('auth_disabled');
+
+    const parsed = z
+      .object({
+        code: z.string().min(3).optional(),
+        state: z.string().min(10).optional(),
+        error: z.string().optional(),
+        error_description: z.string().optional(),
+      })
+      .safeParse(query);
+    if (!parsed.success) throw new BadRequestException('invalid_query');
+
+    const { code, state, error, error_description } = parsed.data;
+    if (error) {
+      const msg = error_description ? `${error}: ${error_description}` : error;
+      return res.status(401).send(`google_oauth_error: ${msg}`);
+    }
+
+    const saved = req.session.googleOAuth;
+    if (!saved?.state || !state || saved.state !== state) {
+      return res.status(401).send('google_oauth_state_mismatch');
+    }
+
+    let client;
+    try {
+      client = getGoogleOAuthClient();
+    } catch (e) {
+      return res
+        .status(500)
+        .send(`google_oauth_not_configured: ${String((e as Error)?.message ?? e)}`);
+    }
+    if (!code) return res.status(400).send('missing_code');
+
+    try {
+      const { tokens } = await client.getToken(code);
+      if (!tokens.id_token) return res.status(401).send('missing_id_token');
+
+      // verify id token
+      const ticket = await getGoogleClient().verifyIdToken({
+        idToken: tokens.id_token,
+        audience: process.env.GOOGLE_OAUTH_CLIENT_ID,
+      });
+      const payload = ticket.getPayload();
+      if (!payload?.sub) return res.status(401).send('invalid_token');
+
+      req.session.user = {
+        id: crypto.randomUUID(),
+        provider: 'google',
+        subject: payload.sub,
+        displayName: payload.name ?? payload.email ?? undefined,
+      };
+      req.session.googleOAuth = undefined;
+
+      const fallback = `${req.protocol}://${req.hostname}:3000/`;
+      const candidate = saved.returnTo;
+      let dest = fallback;
+      if (candidate) {
+        try {
+          const u = new URL(candidate);
+          const allowOrigin = process.env.WEB_ORIGIN;
+          if (allowOrigin && candidate.startsWith(allowOrigin)) {
+            dest = candidate;
+          } else if (u.hostname === req.hostname && u.port === '3000') {
+            dest = candidate;
+          }
+        } catch {
+          // ignore
+        }
+      }
+
+      return res.redirect(dest);
+    } catch (e) {
+      return res
+        .status(401)
+        .send(`google_oauth_exchange_failed: ${String((e as Error)?.message ?? e)}`);
     }
   }
 

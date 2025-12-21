@@ -1,8 +1,6 @@
-import Script from "next/script";
 import { ArrowLeft, Eye, EyeOff } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
-  authGoogle,
   authMe,
   authPhoneStart,
   authPhoneVerify,
@@ -16,26 +14,18 @@ type SessionUser = {
   phoneE164?: string;
 };
 
-type GoogleCredentialResponse = { credential: string };
-
-type GoogleIdApi = {
-  initialize: (cfg: {
-    client_id: string;
-    callback: (resp: GoogleCredentialResponse) => void;
-  }) => void;
-  renderButton: (
-    container: HTMLElement,
-    options: Record<string, unknown>
-  ) => void;
-};
-
 function errMsg(e: unknown) {
   if (e instanceof Error) return e.message;
   return String(e);
 }
 
-// Google GIS 버튼은 스타일 커스터마이즈가 제한적이라
-// wrapper는 hover 피드백만 담당하고, 버튼은 가능한 한 컨테이너 폭에 맞춰 렌더합니다.
+function getApiBaseUrl() {
+  if (process.env.NEXT_PUBLIC_API_BASE_URL) return process.env.NEXT_PUBLIC_API_BASE_URL;
+  if (typeof window !== "undefined") {
+    return `${window.location.protocol}//${window.location.hostname}:8787`;
+  }
+  return "http://127.0.0.1:8787";
+}
 
 function formatPhoneNumber(value: string) {
   const numbers = value.replace(/[^\d]/g, "");
@@ -72,12 +62,7 @@ export function AuthView({
     process.env.NEXT_PUBLIC_GOOGLE_OAUTH_CLIENT_ID ??
     "";
 
-  const googleWrapRef = useRef<HTMLDivElement | null>(null);
-  const googleButtonOuterRef = useRef<HTMLDivElement | null>(null);
-  const googleButtonInnerRef = useRef<HTMLDivElement | null>(null);
-  const [googleReady, setGoogleReady] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
-  const [googleScaleX, setGoogleScaleX] = useState(1);
 
   const [phone, setPhone] = useState("");
   const [challengeId, setChallengeId] = useState<string | null>(null);
@@ -118,65 +103,6 @@ export function AuthView({
     () => !!googleClientId && !!authEnabled,
     [googleClientId, authEnabled]
   );
-
-  const initGoogleButton = async () => {
-    if (!googleClientId) return;
-    if (!authEnabled) return;
-    if (!googleButtonInnerRef.current) return;
-    try {
-      setGoogleReady(false);
-      const g = (
-        window as unknown as { google?: { accounts?: { id?: GoogleIdApi } } }
-      ).google?.accounts?.id;
-      if (!g) throw new Error("Google Identity not available");
-
-      googleButtonInnerRef.current.innerHTML = "";
-
-      g.initialize({
-        client_id: googleClientId,
-        callback: async (resp: GoogleCredentialResponse) => {
-          try {
-            setGoogleLoading(true);
-            setError(null);
-            await authGoogle({ idToken: resp.credential });
-            await refresh();
-          } catch (e) {
-            setError(errMsg(e));
-          } finally {
-            setGoogleLoading(false);
-          }
-        },
-      });
-
-      const wrapWidth =
-        googleWrapRef.current?.getBoundingClientRect?.().width ??
-        googleButtonOuterRef.current?.getBoundingClientRect?.().width ??
-        360;
-
-      // GIS 버튼 자체 폭이 제한되어(대략 200~400px) full-width가 안 되므로,
-      // baseWidth로 렌더 후 X축 스케일링으로 컨테이너 폭에 맞춥니다.
-      const baseWidth = Math.max(260, Math.min(400, Math.round(wrapWidth)));
-      const scaleX = wrapWidth / baseWidth;
-      setGoogleScaleX(Number.isFinite(scaleX) && scaleX > 0 ? scaleX : 1);
-
-      g.renderButton(googleButtonInnerRef.current, {
-        theme: "outline",
-        size: "large",
-        text: "continue_with",
-        shape: "pill",
-        width: baseWidth,
-      });
-
-      setGoogleReady(true);
-    } catch (e) {
-      setError(errMsg(e));
-    }
-  };
-
-  useEffect(() => {
-    initGoogleButton();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [googleClientId, authEnabled]);
 
   const isLoading = phoneLoading || googleLoading;
 
@@ -465,72 +391,78 @@ export function AuthView({
           />
         </div>
 
-        {canUseGoogle && (
-          <Script
-            src="https://accounts.google.com/gsi/client"
-            strategy="afterInteractive"
-            onLoad={() => initGoogleButton()}
-          />
-        )}
-
         {/* Social Login Buttons */}
         <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-          <div
-            ref={googleWrapRef}
-            style={{
-              width: "100%",
-              position: "relative",
-              borderRadius: "14px",
-              overflow: "hidden",
-              minHeight: "56px",
-            }}
+          <button
+            type="button"
+            disabled={!canUseGoogle || isLoading}
             onMouseEnter={() => setSocialHover("google")}
             onMouseLeave={() => setSocialHover(null)}
+            onClick={() => {
+              if (!canUseGoogle) return;
+              try {
+                setGoogleLoading(true);
+                const apiBase = getApiBaseUrl();
+                const returnTo =
+                  typeof window === "undefined" ? "" : window.location.origin + "/";
+                const url = new URL("/api/auth/google/start", apiBase);
+                url.searchParams.set("returnTo", returnTo);
+                window.location.href = url.toString();
+              } catch (e) {
+                setGoogleLoading(false);
+                setError(errMsg(e));
+              }
+            }}
+            style={{
+              width: "100%",
+              padding: "16px",
+              background: "var(--color-surface)",
+              border:
+                socialHover === "google"
+                  ? "2px solid #4285F4"
+                  : "2px solid var(--color-border)",
+              borderRadius: "14px",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: "12px",
+              cursor: !canUseGoogle || isLoading ? "not-allowed" : "pointer",
+              fontSize: "1rem",
+              fontWeight: "600",
+              color: "var(--color-text-primary)",
+              transition: "all 0.2s",
+              minHeight: "56px",
+              boxShadow:
+                socialHover === "google"
+                  ? "0 8px 18px rgba(66, 133, 244, 0.14)"
+                  : "0 2px 8px rgba(40, 91, 170, 0.06)",
+              transform:
+                socialHover === "google"
+                  ? "translateY(-1px)"
+                  : "translateY(0)",
+              opacity: !canUseGoogle || isLoading ? 0.6 : 1,
+            }}
           >
-            {/* Google GIS button (visible + clickable). Wrapper handles hover feedback. */}
-            <div
-              style={{
-                width: "100%",
-                background:
-                  socialHover === "google" ? "#F8FBFF" : "var(--color-surface)",
-                borderRadius: "14px",
-                transition: "all 0.2s",
-                minHeight: "56px",
-                boxShadow:
-                  socialHover === "google"
-                    ? "0 8px 18px rgba(66, 133, 244, 0.14)"
-                    : "0 2px 8px rgba(40, 91, 170, 0.06)",
-                transform:
-                  socialHover === "google"
-                    ? "translateY(-1px)"
-                    : "translateY(0)",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                cursor: canUseGoogle ? "pointer" : "default",
-                opacity: canUseGoogle ? 1 : 0.6,
-              }}
-            >
-              <div
-                style={{
-                  width: "100%",
-                  display: "flex",
-                  justifyContent: "center",
-                  alignItems: "center",
-                }}
-                ref={googleButtonOuterRef}
-              >
-                <div
-                  ref={googleButtonInnerRef}
-                  style={{
-                    transform: `scaleX(${googleScaleX})`,
-                    transformOrigin: "center",
-                    display: "inline-block",
-                  }}
-                />
-              </div>
-            </div>
-          </div>
+            <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+              <path
+                d="M19.8 10.2273C19.8 9.51818 19.7364 8.83636 19.6182 8.18182H10V12.05H15.4727C15.2273 13.3 14.5227 14.3591 13.4727 15.0682V17.5773H16.7636C18.6727 15.8318 19.8 13.2727 19.8 10.2273Z"
+                fill="#4285F4"
+              />
+              <path
+                d="M10 20C12.7 20 14.9636 19.1045 16.7636 17.5773L13.4727 15.0682C12.5909 15.6682 11.4455 16.0227 10 16.0227C7.39545 16.0227 5.19091 14.2636 4.40455 11.9H0.995453V14.4909C2.78636 18.0591 6.10909 20 10 20Z"
+                fill="#34A853"
+              />
+              <path
+                d="M4.40455 11.9C4.20455 11.3 4.09091 10.6591 4.09091 10C4.09091 9.34091 4.20455 8.7 4.40455 8.1V5.50909H0.995453C0.359091 6.77273 0 8.19545 0 10C0 11.8045 0.359091 13.2273 0.995453 14.4909L4.40455 11.9Z"
+                fill="#FBBC05"
+              />
+              <path
+                d="M10 3.97727C11.5682 3.97727 12.9682 4.48182 14.0682 5.52727L17.0227 2.57273C14.9591 0.636364 12.6955 -0.5 10 -0.5C6.10909 -0.5 2.78636 1.44091 0.995453 5.00909L4.40455 7.6C5.19091 5.23636 7.39545 3.97727 10 3.97727Z"
+                fill="#EA4335"
+              />
+            </svg>
+            {googleLoading ? "이동 중..." : "구글로 계속하기"}
+          </button>
 
           <div
             title="준비중"
@@ -623,7 +555,7 @@ export function AuthView({
           </div>
         </div>
 
-        {!googleReady && canUseGoogle && (
+        {!canUseGoogle && (
           <p
             style={{
               marginTop: 10,
@@ -631,9 +563,12 @@ export function AuthView({
               color: "var(--color-text-tertiary)",
               fontSize: "0.875rem",
               textAlign: "center",
+              lineHeight: 1.5,
             }}
           >
-            버튼을 불러오는 중…
+            Google 로그인을 사용하려면{" "}
+            <code>NEXT_PUBLIC_GOOGLE_CLIENT_ID</code>와 서버의{" "}
+            <code>AUTH_ENABLED=true</code>가 필요해요.
           </p>
         )}
 

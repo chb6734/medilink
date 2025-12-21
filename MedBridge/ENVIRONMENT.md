@@ -37,9 +37,18 @@ Gemini 요약은 기본적으로 OFF이며, 켜려면 아래 값을 설정합니
 
 ### 4.1 Google 로그인
 
+#### A) (Legacy) ID Token 검증 방식
 클라이언트에서 Google ID Token을 받아 서버가 검증하는 구조(골격)입니다.
 
 - **GOOGLE_OAUTH_CLIENT_ID**
+
+#### B) (권장) OAuth 2.0 Authorization Code Flow (커스텀 버튼)
+커스텀 UI 버튼을 쓰려면 서버가 `code`를 받아 토큰으로 교환해야 해서 아래 값이 필요합니다.
+
+- **GOOGLE_OAUTH_CLIENT_ID**
+- **GOOGLE_OAUTH_CLIENT_SECRET**
+- **GOOGLE_OAUTH_REDIRECT_URI** (예: `http://localhost:8787/api/auth/google/callback`)
+- **WEB_ORIGIN** (옵션, returnTo allowlist. 예: `http://localhost:3000`)
 
 #### Web (Vite) 환경변수
 

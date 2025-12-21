@@ -22,6 +22,16 @@ export function getGoogleClient() {
   return new OAuth2Client(clientId);
 }
 
+export function getGoogleOAuthClient() {
+  const clientId = process.env.GOOGLE_OAUTH_CLIENT_ID;
+  const clientSecret = process.env.GOOGLE_OAUTH_CLIENT_SECRET;
+  const redirectUri = process.env.GOOGLE_OAUTH_REDIRECT_URI;
+  if (!clientId) throw new Error('Missing GOOGLE_OAUTH_CLIENT_ID');
+  if (!clientSecret) throw new Error('Missing GOOGLE_OAUTH_CLIENT_SECRET');
+  if (!redirectUri) throw new Error('Missing GOOGLE_OAUTH_REDIRECT_URI');
+  return new OAuth2Client(clientId, clientSecret, redirectUri);
+}
+
 export function randomOtpCode() {
   // 6-digit numeric OTP
   return String(Math.floor(100000 + Math.random() * 900000));
