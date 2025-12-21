@@ -35,6 +35,25 @@ Prisma가 읽는 `.env`도 `packages/db/.env`(또는 실행 시점의 환경변�
 - **GOOGLE_APPLICATION_CREDENTIALS**
   - 서비스 계정 JSON 파일 경로
 
+## 2.1 (대안) Gemini API Key 기반 멀티모달 OCR (AS-IS 호환)
+
+Vision 대신 **Gemini(API Key)**로 이미지에서 약물 정보를 구조화(JSON)로 뽑을 수 있습니다.
+이 모드는 **AS-IS 프롬프트/스키마와 동일한 형태**로 `preview-ocr` 응답에 `medications[]/hospitalName/patientCondition`을 추가합니다.
+
+- **GEMINI_OCR_ENABLED**: `true` / `false`
+- **AI_INTEGRATIONS_GEMINI_API_KEY**: Gemini API Key
+- **AI_INTEGRATIONS_GEMINI_BASE_URL** (옵션)
+- **AI_INTEGRATIONS_GEMINI_API_VERSION** (옵션)
+- **GEMINI_OCR_MODEL** (기본: `gemini-2.5-flash`)
+
+예시:
+
+```env
+GEMINI_OCR_ENABLED=true
+AI_INTEGRATIONS_GEMINI_API_KEY=your_api_key
+GEMINI_OCR_MODEL=gemini-2.5-flash
+```
+
 ## 3) Gemini (Vertex AI) - optional
 
 Gemini 요약은 기본적으로 OFF이며, 켜려면 아래 값을 설정합니다.

@@ -6,6 +6,22 @@ export type PreviewOcrResponse = {
   rawText: string;
   overallConfidence: number | null;
   meds: Array<{ nameRaw: string; confidence: number | null }>;
+  // Gemini OCR(AS-IS) 확장 응답
+  hospitalName?: string | null;
+  patientCondition?: string | null;
+  medications?: Array<{
+    medicationName: string;
+    dose: string | null;
+    frequency: string | null;
+    duration: string | null;
+    prescriptionDate: string | null;
+    dispensingDate: string | null;
+    confidence: number;
+    ingredients: string | null;
+    indication: string | null;
+    dosesPerDay: number | null;
+    totalDoses: number | null;
+  }> | null;
 };
 
 export async function previewOcr(file: File): Promise<PreviewOcrResponse> {

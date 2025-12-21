@@ -43,12 +43,20 @@ export function QuickRecord({ onBack, onRecordSaved }: QuickRecordProps) {
       setStep("analyzing");
       try {
         const preview = await previewOcr(file);
-        const meds = preview.meds.map((m) => ({
-          name: m.nameRaw,
-          dosage: "",
-          frequency: "",
-          confidence: m.confidence,
-        }));
+        const meds =
+          preview.medications && preview.medications.length > 0
+            ? preview.medications.map((m) => ({
+                name: m.medicationName,
+                dosage: m.dose ?? "",
+                frequency: m.frequency ?? "",
+                confidence: typeof m.confidence === "number" ? m.confidence : null,
+              }))
+            : preview.meds.map((m) => ({
+                name: m.nameRaw,
+                dosage: "",
+                frequency: "",
+                confidence: m.confidence,
+              }));
         const result: OCRResult = {
           medications: meds,
           prescriptionDate: new Date().toISOString().split("T")[0],

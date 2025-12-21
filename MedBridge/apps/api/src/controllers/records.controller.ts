@@ -21,6 +21,7 @@ import { summarizeForClinician } from "../lib/gemini";
 import { parseMedCandidates } from "../lib/meds";
 import { isAuthEnabled } from "../lib/auth";
 import { memAddRecord, memGetRecords } from "../lib/memory";
+import { extractMedicationsFromImage, isGeminiOcrEnabled } from "../lib/genaiOcr";
 
 function requireAuth(req: Request) {
   if (!isAuthEnabled()) return;
@@ -90,8 +91,45 @@ export class RecordsController {
     const buf = file.buffer;
     let text = "";
     let overallConfidence: number | null = null;
+    let hospitalName: string | null = null;
+    let patientCondition: string | null = null;
+    let medicationsDetailed:
+      | Array<{
+          medicationName: string;
+          dose: string | null;
+          frequency: string | null;
+          duration: string | null;
+          prescriptionDate: string | null;
+          dispensingDate: string | null;
+          confidence: number;
+          ingredients: string | null;
+          indication: string | null;
+          dosesPerDay: number | null;
+          totalDoses: number | null;
+        }>
+      | null = null;
 
-    if (useInMemoryStore && !visionEnabled) {
+    // Prefer Gemini multimodal extraction if enabled (AS-IS behavior)
+    if (isGeminiOcrEnabled()) {
+      const r = await extractMedicationsFromImage(buf, file.mimetype || "image/jpeg");
+      text = r.rawText ?? "";
+      overallConfidence = null;
+      hospitalName = r.hospitalName ?? null;
+      patientCondition = r.patientCondition ?? null;
+      medicationsDetailed = r.medications.map((m) => ({
+        medicationName: m.medicationName,
+        dose: m.dose ?? null,
+        frequency: m.frequency ?? null,
+        duration: m.duration ?? null,
+        prescriptionDate: m.prescriptionDate ?? null,
+        dispensingDate: m.dispensingDate ?? null,
+        confidence: m.confidence,
+        ingredients: m.ingredients ?? null,
+        indication: m.indication ?? null,
+        dosesPerDay: m.dosesPerDay ?? null,
+        totalDoses: m.totalDoses ?? null,
+      }));
+    } else if (useInMemoryStore && !visionEnabled) {
       text =
         "OCR 미설정(개발 모드) — 실제 배포에서는 Google Cloud Vision 설정이 필요합니다.";
       overallConfidence = null;
@@ -115,11 +153,16 @@ export class RecordsController {
       }
     }
 
-    const meds = parseMedCandidates(text);
+    const meds = medicationsDetailed
+      ? medicationsDetailed.map((m) => m.medicationName).filter(Boolean)
+      : parseMedCandidates(text);
     return {
       rawText: text,
       overallConfidence,
       meds: meds.map((nameRaw) => ({ nameRaw, confidence: null })),
+      hospitalName,
+      patientCondition,
+      medications: medicationsDetailed,
     };
   }
 

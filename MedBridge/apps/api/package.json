@@ -25,6 +25,7 @@
     "@nestjs/platform-express": "^11.0.1",
     "@google-cloud/vertexai": "^1.10.0",
     "@google-cloud/vision": "^4.3.3",
+    "@google/genai": "^1.0.0",
     "@medbridge/db": "workspace:*",
     "cookie-parser": "^1.4.7",
     "dotenv": "^16.4.7",
