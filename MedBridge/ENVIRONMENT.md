@@ -19,6 +19,14 @@ postgresql://postgres:password@hyunbinhome.synology.me:5434/heliumdb?sslmode=dis
 postgresql://postgres:password@localhost:5434/heliumdb?sslmode=disable
 ```
 
+### Prisma 마이그레이션 실행 시 주의
+`pnpm --filter @medbridge/db prisma:*` 스크립트는 작업 디렉터리가 `packages/db`라서,
+Prisma가 읽는 `.env`도 `packages/db/.env`(또는 실행 시점의 환경변수)입니다.
+
+- 방법 A(권장): 실행할 때 환경변수로 주입
+  - `DATABASE_URL="..." pnpm --filter @medbridge/db prisma:migrate`
+- 방법 B: `packages/db/.env`에 `DATABASE_URL=...` 작성(값은 커밋하지 않기)
+
 ## 2) Google Cloud Vision (OCR)
 
 서버에서 Google Cloud Vision을 호출하려면 ADC(Application Default Credentials)가 필요합니다.
