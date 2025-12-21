@@ -20,6 +20,7 @@ postgresql://postgres:password@localhost:5434/heliumdb?sslmode=disable
 ```
 
 ### Prisma 마이그레이션 실행 시 주의
+
 `pnpm --filter @medbridge/db prisma:*` 스크립트는 작업 디렉터리가 `packages/db`라서,
 Prisma가 읽는 `.env`도 `packages/db/.env`(또는 실행 시점의 환경변수)입니다.
 
@@ -38,10 +39,36 @@ Prisma가 읽는 `.env`도 `packages/db/.env`(또는 실행 시점의 환경변�
 
 Gemini 요약은 기본적으로 OFF이며, 켜려면 아래 값을 설정합니다.
 
+- **이 프로젝트의 Gemini 연동 방식**
+  - 서버(`apps/api`)에서 **Vertex AI Gemini**를 사용합니다. (SDK: `@google-cloud/vertexai`)
+  - 따라서 “Gemini API Key(AI Studio)” 방식이 아니라, **Google Cloud 프로젝트 + 서비스 계정(ADC)** 기반입니다.
+
+### 3.1 사전 준비 (Google Cloud Console)
+1) **Vertex AI API 활성화**
+2) **서비스 계정 생성** 후 키(JSON) 다운로드
+3) 서비스 계정 권한(IAM) 최소 예시:
+   - **Vertex AI User** (Gemini 호출)
+   - (OCR도 같이 쓰면) **Cloud Vision API User**
+4) 로컬에서 ADC로 읽히도록 JSON 경로를 지정:
+   - `GOOGLE_APPLICATION_CREDENTIALS=/abs/path/to/service-account.json`
+
+### 3.2 환경변수 (apps/api/.env.local 권장)
 - **GOOGLE_CLOUD_PROJECT**
 - **GOOGLE_CLOUD_LOCATION** (기본: `us-central1`)
 - **GEMINI_ENABLED**: `true` / `false`
 - **GEMINI_MODEL** (기본: `gemini-1.5-flash`)
+
+예시:
+
+```env
+GOOGLE_APPLICATION_CREDENTIALS=/Users/chahyunbin/keys/medbridge-sa.json
+GOOGLE_CLOUD_PROJECT=your-gcp-project-id
+GOOGLE_CLOUD_LOCATION=us-central1
+GEMINI_ENABLED=true
+GEMINI_MODEL=gemini-1.5-flash
+```
+
+> 참고: `GOOGLE_APPLICATION_CREDENTIALS`는 OCR(Vision)과 Gemini(Vertex AI)가 **같은 서비스 계정**을 공유해도 됩니다(권한만 있으면 됨).
 
 ## 4) Auth (Phase 1 skeleton)
 
