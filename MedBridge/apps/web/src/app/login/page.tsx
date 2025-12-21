@@ -5,7 +5,12 @@ import { useRouter } from "next/navigation";
 
 export default function LoginPage() {
   const router = useRouter();
-  return <AuthView onDone={() => router.replace("/")} />;
+  return (
+    <AuthView
+      onBack={() => router.back()}
+      onDone={() => router.replace("/")}
+    />
+  );
 }
 
 

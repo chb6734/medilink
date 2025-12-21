@@ -1,11 +1,13 @@
-import { Camera, FileText, Clock, Pill, User, LogIn } from "lucide-react";
+import { Camera, FileText, Clock, Pill, User } from "lucide-react";
 
 interface HomeProps {
   onQuickRecord: () => void;
   onQuestionnaire: () => void;
   onHistory: () => void;
   onLogin: () => void;
+  onLogout: () => void;
   recordCount: number;
+  user: { displayName?: string; phoneE164?: string; subject?: string } | null;
 }
 
 export function Home({
@@ -13,7 +15,9 @@ export function Home({
   onQuestionnaire,
   onHistory,
   onLogin,
+  onLogout,
   recordCount,
+  user,
 }: HomeProps) {
   return (
     <div className="min-h-screen pb-24">
@@ -32,38 +36,89 @@ export function Home({
             display: "flex",
             justifyContent: "space-between",
             alignItems: "flex-start",
+            marginBottom: "24px",
           }}
         >
-          <div>
+          <div style={{ flex: 1 }}>
             <p
               style={{
                 fontSize: "0.9375rem",
                 opacity: 0.9,
-                marginBottom: "4px",
+                marginBottom: "8px",
               }}
             >
               안녕하세요 👋
             </p>
-            <h1 style={{ color: "white", marginBottom: "24px" }}>연속진료</h1>
+            {user ? (
+              <h1 style={{ color: "white", marginBottom: 0 }}>
+                {(user.displayName ?? user.phoneE164 ?? user.subject ?? "사용자") +
+                  "님"}
+              </h1>
+            ) : (
+              <h1 style={{ color: "white", marginBottom: 0 }}>
+                건강한 하루 되세요
+              </h1>
+            )}
           </div>
-          <button
-            onClick={onLogin}
-            style={{
-              background: "rgba(255,255,255,0.2)",
-              border: "1px solid rgba(255,255,255,0.25)",
-              color: "white",
-              padding: "10px 12px",
-              borderRadius: "14px",
-              cursor: "pointer",
-              display: "flex",
-              alignItems: "center",
-              gap: "8px",
-              fontWeight: 700,
-            }}
-          >
-            <LogIn className="w-4 h-4" />
-            로그인
-          </button>
+          {/* Login/Logout Button */}
+          {user ? (
+            <button
+              onClick={onLogout}
+              style={{
+                background: "rgba(255,255,255,0.2)",
+                border: "1px solid rgba(255,255,255,0.3)",
+                padding: "10px 18px",
+                borderRadius: "12px",
+                color: "white",
+                fontSize: "0.9375rem",
+                fontWeight: "600",
+                cursor: "pointer",
+                transition: "all 0.2s",
+                backdropFilter: "blur(10px)",
+                whiteSpace: "nowrap",
+                display: "flex",
+                alignItems: "center",
+                gap: "6px",
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = "rgba(255,255,255,0.3)";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = "rgba(255,255,255,0.2)";
+              }}
+            >
+              로그아웃
+            </button>
+          ) : (
+            <button
+              onClick={onLogin}
+              style={{
+                background: "rgba(255,255,255,0.2)",
+                border: "1px solid rgba(255,255,255,0.3)",
+                padding: "10px 18px",
+                borderRadius: "12px",
+                color: "white",
+                fontSize: "0.9375rem",
+                fontWeight: "600",
+                cursor: "pointer",
+                transition: "all 0.2s",
+                backdropFilter: "blur(10px)",
+                whiteSpace: "nowrap",
+                display: "flex",
+                alignItems: "center",
+                gap: "6px",
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = "rgba(255,255,255,0.3)";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = "rgba(255,255,255,0.2)";
+              }}
+            >
+              <User className="w-4 h-4" />
+              로그인
+            </button>
+          )}
         </div>
 
         {/* Search/Status Bar */}
