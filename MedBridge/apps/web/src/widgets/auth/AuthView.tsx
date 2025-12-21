@@ -34,9 +34,8 @@ function errMsg(e: unknown) {
   return String(e);
 }
 
-// Google GIS 버튼은 높이/스타일 커스터마이즈가 제한적이라
-// 컨테이너 폭에 맞춰 width를 줄이고 약간 스케일링해서 시각적으로 버튼 높이(56px)에 맞춥니다.
-const GOOGLE_BUTTON_SCALE = 1.08;
+// Google GIS 버튼은 스타일 커스터마이즈가 제한적이라
+// wrapper는 hover 피드백만 담당하고, 버튼은 가능한 한 컨테이너 폭에 맞춰 렌더합니다.
 
 function formatPhoneNumber(value: string) {
   const numbers = value.replace(/[^\d]/g, "");
@@ -151,8 +150,7 @@ export function AuthView({
         googleWrapRef.current?.getBoundingClientRect?.().width ??
         googleButtonRef.current.getBoundingClientRect().width ??
         360;
-      const contentWidth = Math.max(260, width - 4); // wrapper border(2px*2) 고려
-      const buttonWidth = Math.floor(contentWidth / GOOGLE_BUTTON_SCALE);
+      const buttonWidth = Math.max(260, Math.round(width));
 
       g.renderButton(googleButtonRef.current, {
         theme: "outline",
@@ -488,10 +486,6 @@ export function AuthView({
                 width: "100%",
                 background:
                   socialHover === "google" ? "#F8FBFF" : "var(--color-surface)",
-                border:
-                  socialHover === "google"
-                    ? "2px solid #4285F4"
-                    : "2px solid var(--color-border)",
                 borderRadius: "14px",
                 transition: "all 0.2s",
                 minHeight: "56px",
@@ -508,7 +502,6 @@ export function AuthView({
                 justifyContent: "center",
                 cursor: canUseGoogle ? "pointer" : "default",
                 opacity: canUseGoogle ? 1 : 0.6,
-                padding: "6px 0",
               }}
             >
               <div
@@ -517,8 +510,6 @@ export function AuthView({
                   width: "100%",
                   display: "flex",
                   justifyContent: "center",
-                  transform: `scale(${GOOGLE_BUTTON_SCALE})`,
-                  transformOrigin: "center",
                 }}
               />
             </div>
