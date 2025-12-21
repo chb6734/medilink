@@ -88,6 +88,24 @@ export function AuthView({
     refresh();
   }, []);
 
+  // server-side redirect에서 전달된 에러 메시지 표시 (/login?error=...&message=...)
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const sp = new URLSearchParams(window.location.search);
+    const e = sp.get("error");
+    if (!e) return;
+    const msg = sp.get("message");
+    if (e === "google_oauth_not_configured") {
+      setError(
+        `Google OAuth 설정이 필요해요. API 서버 환경변수(GOOGLE_OAUTH_CLIENT_ID/SECRET/REDIRECT_URI)를 확인하세요.\n${msg ? `(${msg})` : ""}`,
+      );
+      setGoogleLoading(false);
+      return;
+    }
+    setError(`${e}${msg ? `: ${msg}` : ""}`);
+    setGoogleLoading(false);
+  }, []);
+
   // 로그인 성공 시 자동으로 홈으로 이동
   useEffect(() => {
     if (!user) return;

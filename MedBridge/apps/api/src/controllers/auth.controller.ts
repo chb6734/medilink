@@ -92,9 +92,24 @@ export class AuthController {
     try {
       client = getGoogleOAuthClient();
     } catch (e) {
-      throw new BadRequestException(
-        `google_oauth_not_configured: ${String((e as Error)?.message ?? e)}`,
-      );
+      // window.location.href 로 호출되는 엔드포인트라 400을 던지면 UX가 "무반응"처럼 보일 수 있음.
+      // 따라서 login 화면으로 되돌리고, 쿼리로 에러를 전달합니다.
+      const base =
+        (typeof returnTo === 'string' && returnTo.length > 0 && returnTo) ||
+        process.env.WEB_ORIGIN ||
+        'http://localhost:3000/login';
+      try {
+        const u = new URL(base);
+        u.pathname = '/login';
+        u.searchParams.set('error', 'google_oauth_not_configured');
+        u.searchParams.set('message', String((e as Error)?.message ?? e));
+        return res.redirect(u.toString());
+      } catch {
+        // fallback: keep old behavior
+        throw new BadRequestException(
+          `google_oauth_not_configured: ${String((e as Error)?.message ?? e)}`,
+        );
+      }
     }
 
     const url = client.generateAuthUrl({
