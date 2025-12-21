@@ -4,12 +4,19 @@
 
 ## 1) Database
 
-로컬 개발은 `docker-compose.yml`의 Postgres(서비스: `helium`)을 사용합니다.
+원격 DB를 사용할 경우 `DATABASE_URL`의 host/port만 바꿔주면 됩니다.
+로컬 DB가 필요하면 `docker-compose.yml`의 Postgres(서비스: `helium`)을 사용하세요.
 
 - **DATABASE_URL**
 
 ```text
-postgresql://postgres:password@localhost:5432/heliumdb?sslmode=disable
+postgresql://postgres:password@hyunbinhome.synology.me:5434/heliumdb?sslmode=disable
+```
+
+### 로컬 DB(docker-compose) 사용 시
+
+```text
+postgresql://postgres:password@localhost:5434/heliumdb?sslmode=disable
 ```
 
 ## 2) Google Cloud Vision (OCR)
@@ -38,11 +45,13 @@ Gemini 요약은 기본적으로 OFF이며, 켜려면 아래 값을 설정합니
 ### 4.1 Google 로그인
 
 #### A) (Legacy) ID Token 검증 방식
+
 클라이언트에서 Google ID Token을 받아 서버가 검증하는 구조(골격)입니다.
 
 - **GOOGLE_OAUTH_CLIENT_ID**
 
 #### B) (권장) OAuth 2.0 Authorization Code Flow (커스텀 버튼)
+
 커스텀 UI 버튼을 쓰려면 서버가 `code`를 받아 토큰으로 교환해야 해서 아래 값이 필요합니다.
 
 - **GOOGLE_OAUTH_CLIENT_ID**
