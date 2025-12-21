@@ -79,6 +79,9 @@ export function AuthView({
   const [code, setCode] = useState("");
   const [showCode, setShowCode] = useState(false);
   const [phoneLoading, setPhoneLoading] = useState(false);
+  const [socialHover, setSocialHover] = useState<
+    "google" | "kakao" | "naver" | null
+  >(null);
 
   async function refresh() {
     setLoading(true);
@@ -460,7 +463,7 @@ export function AuthView({
         )}
 
         {/* Social Login Buttons */}
-        <div className="space-y-3">
+        <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
           <div
             ref={googleWrapRef}
             style={{
@@ -470,14 +473,20 @@ export function AuthView({
               overflow: "hidden",
               minHeight: "56px",
             }}
+            onMouseEnter={() => setSocialHover("google")}
+            onMouseLeave={() => setSocialHover(null)}
           >
             {/* Visual layer (matches design) */}
             <div
               style={{
                 width: "100%",
                 padding: "16px",
-                background: "var(--color-surface)",
-                border: "2px solid var(--color-border)",
+                background:
+                  socialHover === "google" ? "#F8FBFF" : "var(--color-surface)",
+                border:
+                  socialHover === "google"
+                    ? "2px solid #4285F4"
+                    : "2px solid var(--color-border)",
                 borderRadius: "14px",
                 display: "flex",
                 alignItems: "center",
@@ -489,6 +498,12 @@ export function AuthView({
                 transition: "all 0.2s",
                 minHeight: "56px",
                 pointerEvents: "none",
+                boxShadow:
+                  socialHover === "google"
+                    ? "0 8px 18px rgba(66, 133, 244, 0.14)"
+                    : "0 2px 8px rgba(40, 91, 170, 0.06)",
+                transform:
+                  socialHover === "google" ? "translateY(-1px)" : "translateY(0)",
               }}
             >
               <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
@@ -518,67 +533,91 @@ export function AuthView({
             />
           </div>
 
-          <button
-            type="button"
-            disabled
-            style={{
-              width: "100%",
-              padding: "16px",
-              background: "#FEE500",
-              border: "none",
-              borderRadius: "14px",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: "12px",
-              cursor: "not-allowed",
-              fontSize: "1rem",
-              fontWeight: "600",
-              color: "#191919",
-              transition: "all 0.2s",
-              minHeight: "56px",
-              opacity: 0.55,
-            }}
+          <div
             title="준비중"
+            onMouseEnter={() => setSocialHover("kakao")}
+            onMouseLeave={() => setSocialHover(null)}
+            style={{ borderRadius: 14 }}
           >
-            <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-              <path
-                d="M10 0C4.477 0 0 3.566 0 7.975C0 10.595 1.654 12.903 4.194 14.285L3.228 17.838C3.137 18.142 3.488 18.386 3.739 18.198L7.931 15.234C8.604 15.328 9.296 15.378 10 15.378C15.523 15.378 20 11.812 20 7.403C20 2.994 15.523 0 10 0Z"
-                fill="#191919"
-              />
-            </svg>
-            카카오톡으로 계속하기 (준비중)
-          </button>
+            <button
+              type="button"
+              disabled
+              style={{
+                width: "100%",
+                padding: "16px",
+                background: "#FEE500",
+                border: "none",
+                borderRadius: "14px",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: "12px",
+                cursor: "not-allowed",
+                fontSize: "1rem",
+                fontWeight: "600",
+                color: "#191919",
+                transition: "all 0.2s",
+                minHeight: "56px",
+                opacity: 0.55,
+                boxShadow:
+                  socialHover === "kakao"
+                    ? "0 8px 18px rgba(0,0,0,0.08)"
+                    : "0 2px 8px rgba(40, 91, 170, 0.06)",
+                transform:
+                  socialHover === "kakao" ? "translateY(-1px)" : "translateY(0)",
+              }}
+            >
+              <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                <path
+                  d="M10 0C4.477 0 0 3.566 0 7.975C0 10.595 1.654 12.903 4.194 14.285L3.228 17.838C3.137 18.142 3.488 18.386 3.739 18.198L7.931 15.234C8.604 15.328 9.296 15.378 10 15.378C15.523 15.378 20 11.812 20 7.403C20 2.994 15.523 0 10 0Z"
+                  fill="#191919"
+                />
+              </svg>
+              카카오톡으로 계속하기 (준비중)
+            </button>
+          </div>
 
-          <button
-            type="button"
-            disabled
-            style={{
-              width: "100%",
-              padding: "16px",
-              background: "#03C75A",
-              border: "none",
-              borderRadius: "14px",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: "12px",
-              cursor: "not-allowed",
-              fontSize: "1rem",
-              fontWeight: "600",
-              color: "white",
-              transition: "all 0.2s",
-              minHeight: "56px",
-              opacity: 0.55,
-            }}
+          <div
             title="준비중"
+            onMouseEnter={() => setSocialHover("naver")}
+            onMouseLeave={() => setSocialHover(null)}
+            style={{ borderRadius: 14 }}
           >
-            <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-              <path d="M13.75 7.5L10 12.5L6.25 7.5H13.75Z" fill="white" />
-              <circle cx="10" cy="10" r="9" stroke="white" strokeWidth="2" />
-            </svg>
-            네이버로 계속하기 (준비중)
-          </button>
+            <button
+              type="button"
+              disabled
+              style={{
+                width: "100%",
+                padding: "16px",
+                background: "#03C75A",
+                border: "none",
+                borderRadius: "14px",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: "12px",
+                cursor: "not-allowed",
+                fontSize: "1rem",
+                fontWeight: "600",
+                color: "white",
+                transition: "all 0.2s",
+                minHeight: "56px",
+                opacity: 0.55,
+                boxShadow:
+                  socialHover === "naver"
+                    ? "0 8px 18px rgba(0,0,0,0.08)"
+                    : "0 2px 8px rgba(40, 91, 170, 0.06)",
+                transform:
+                  socialHover === "naver" ? "translateY(-1px)" : "translateY(0)",
+              }}
+            >
+              <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                <path d="M13.75 7.5L10 12.5L6.25 7.5H13.75Z" fill="white" />
+                <circle cx="10" cy="10" r="9" stroke="white" strokeWidth="2" />
+              </svg>
+              네이버로 계속하기 (준비중)
+            </button>
+          </div>
         </div>
 
         {!googleReady && canUseGoogle && (
