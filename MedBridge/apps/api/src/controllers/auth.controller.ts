@@ -8,18 +8,18 @@ import {
   Post,
   Req,
   UnauthorizedException,
-} from "@nestjs/common";
-import type { Request } from "express";
-import crypto from "node:crypto";
-import { z } from "zod";
+} from '@nestjs/common';
+import type { Request } from 'express';
+import crypto from 'node:crypto';
+import { z } from 'zod';
 import {
   getGoogleClient,
   isAuthEnabled,
   randomOtpCode,
   sha256,
-} from "../lib/auth";
+} from '../lib/auth';
 
-const log = new Logger("Auth");
+const log = new Logger('Auth');
 
 // Phone OTP (DEV skeleton)
 const otpStore = new Map<
@@ -29,7 +29,7 @@ const otpStore = new Map<
 
 @Controller()
 export class AuthController {
-  @Get("/api/auth/me")
+  @Get('/api/auth/me')
   me(@Req() req: Request) {
     return {
       authEnabled: isAuthEnabled(),
@@ -38,12 +38,12 @@ export class AuthController {
   }
 
   // Google login (ID token from client)
-  @Post("/api/auth/google")
+  @Post('/api/auth/google')
   async google(@Req() req: Request, @Body() body: unknown) {
-    if (!isAuthEnabled()) throw new NotFoundException("auth_disabled");
+    if (!isAuthEnabled()) throw new NotFoundException('auth_disabled');
 
     const parsed = z.object({ idToken: z.string().min(10) }).safeParse(body);
-    if (!parsed.success) throw new BadRequestException("invalid_body");
+    if (!parsed.success) throw new BadRequestException('invalid_body');
 
     try {
       const client = getGoogleClient();
@@ -52,31 +52,31 @@ export class AuthController {
         audience: process.env.GOOGLE_OAUTH_CLIENT_ID,
       });
       const payload = ticket.getPayload();
-      if (!payload?.sub) throw new UnauthorizedException("invalid_token");
+      if (!payload?.sub) throw new UnauthorizedException('invalid_token');
 
       req.session.user = {
         id: crypto.randomUUID(),
-        provider: "google",
+        provider: 'google',
         subject: payload.sub,
         displayName: payload.name ?? payload.email ?? undefined,
       };
       return { ok: true };
     } catch (e) {
       throw new UnauthorizedException(
-        `google_verify_failed: ${String((e as any)?.message ?? e)}`,
+        `google_verify_failed: ${String((e as Error)?.message ?? e)}`,
       );
     }
   }
 
   // Phone OTP (DEV skeleton)
-  @Post("/api/auth/phone/start")
+  @Post('/api/auth/phone/start')
   async phoneStart(@Body() body: unknown) {
-    if (!isAuthEnabled()) throw new NotFoundException("auth_disabled");
+    if (!isAuthEnabled()) throw new NotFoundException('auth_disabled');
 
     const parsed = z
       .object({ phoneE164: z.string().min(8).max(20) })
       .safeParse(body);
-    if (!parsed.success) throw new BadRequestException("invalid_body");
+    if (!parsed.success) throw new BadRequestException('invalid_body');
 
     const challengeId = crypto.randomUUID();
     const code = randomOtpCode();
@@ -89,19 +89,19 @@ export class AuthController {
     });
 
     // SMS provider (default: dev)
-    const provider = (process.env.SMS_PROVIDER ?? "dev").toLowerCase();
-    if (provider === "dev") {
+    const provider = (process.env.SMS_PROVIDER ?? 'dev').toLowerCase();
+    if (provider === 'dev') {
       // DEV: print OTP to server log. Replace with SMS vendor in production.
       log.warn(`DEV_OTP_CODE phone=${parsed.data.phoneE164} code=${code}`);
-    } else if (provider === "twilio") {
+    } else if (provider === 'twilio') {
       const accountSid = process.env.TWILIO_ACCOUNT_SID;
       const authToken = process.env.TWILIO_AUTH_TOKEN;
       const from = process.env.TWILIO_FROM;
       if (!accountSid || !authToken || !from) {
-        throw new UnauthorizedException("sms_provider_not_configured");
+        throw new UnauthorizedException('sms_provider_not_configured');
       }
       // Lazy import to keep dev footprint light
-      const { default: twilio } = await import("twilio");
+      const { default: twilio } = await import('twilio');
       const client = twilio(accountSid, authToken);
       await client.messages.create({
         to: parsed.data.phoneE164,
@@ -109,35 +109,39 @@ export class AuthController {
         body: `[MedBridge] 인증번호: ${code} (5분 내 입력)`,
       });
     } else {
-      throw new UnauthorizedException("unsupported_sms_provider");
+      throw new UnauthorizedException('unsupported_sms_provider');
     }
 
     return { challengeId, expiresAt };
   }
 
-  @Post("/api/auth/phone/verify")
-  async phoneVerify(@Req() req: Request, @Body() body: unknown) {
-    if (!isAuthEnabled()) throw new NotFoundException("auth_disabled");
+  @Post('/api/auth/phone/verify')
+  phoneVerify(@Req() req: Request, @Body() body: unknown) {
+    if (!isAuthEnabled()) throw new NotFoundException('auth_disabled');
 
     const parsed = z
-      .object({ challengeId: z.string().uuid(), code: z.string().min(4).max(10) })
+      .object({
+        challengeId: z.string().uuid(),
+        code: z.string().min(4).max(10),
+      })
       .safeParse(body);
-    if (!parsed.success) throw new BadRequestException("invalid_body");
+    if (!parsed.success) throw new BadRequestException('invalid_body');
 
     const entry = otpStore.get(parsed.data.challengeId);
-    if (!entry) throw new NotFoundException("challenge_not_found");
-    if (Date.now() > entry.expiresAt) throw new UnauthorizedException("challenge_expired");
+    if (!entry) throw new NotFoundException('challenge_not_found');
+    if (Date.now() > entry.expiresAt)
+      throw new UnauthorizedException('challenge_expired');
 
     entry.tries += 1;
-    if (entry.tries > 5) throw new UnauthorizedException("too_many_tries");
+    if (entry.tries > 5) throw new UnauthorizedException('too_many_tries');
 
     if (sha256(parsed.data.code) !== entry.codeHash) {
-      throw new UnauthorizedException("invalid_code");
+      throw new UnauthorizedException('invalid_code');
     }
 
     req.session.user = {
       id: crypto.randomUUID(),
-      provider: "phone",
+      provider: 'phone',
       subject: entry.phoneE164,
       phoneE164: entry.phoneE164,
     };
@@ -145,11 +149,9 @@ export class AuthController {
     return { ok: true };
   }
 
-  @Post("/api/auth/logout")
+  @Post('/api/auth/logout')
   logout(@Req() req: Request) {
     if (req.session) req.session.user = undefined;
     return { ok: true };
   }
 }
-
-

@@ -24,7 +24,7 @@ async function parseError(resp: Response) {
 
 export async function fetchJson<T>(
   path: string,
-  init?: RequestInit,
+  init?: RequestInit
 ): Promise<T> {
   const API_BASE_URL = getApiBaseUrl();
   const resp = await fetch(`${API_BASE_URL}${path}`, {
@@ -42,7 +42,7 @@ export async function fetchJson<T>(
 export async function fetchForm<T>(
   path: string,
   form: FormData,
-  init?: RequestInit,
+  init?: RequestInit
 ): Promise<T> {
   const API_BASE_URL = getApiBaseUrl();
   const resp = await fetch(`${API_BASE_URL}${path}`, {
@@ -55,5 +55,3 @@ export async function fetchForm<T>(
   if (!resp.ok) throw await parseError(resp);
   return (await resp.json()) as T;
 }
-
-

@@ -62,6 +62,7 @@ Next.js에서는 `NEXT_PUBLIC_` prefix가 붙은 값만 브라우저 번들에 �
 - **SMS_PROVIDER**: `dev` (기본) / `twilio`
 
 #### Twilio (옵션)
+
 - **TWILIO_ACCOUNT_SID**
 - **TWILIO_AUTH_TOKEN**
 - **TWILIO_FROM** (발신번호)
