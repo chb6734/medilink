@@ -1,10 +1,6 @@
 import { ArrowLeft, Eye, EyeOff } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
-import {
-  authMe,
-  authPhoneStart,
-  authPhoneVerify,
-} from "@/shared/api";
+import { authMe, authPhoneStart, authPhoneVerify } from "@/shared/api";
 
 type SessionUser = {
   id: string;
@@ -20,7 +16,8 @@ function errMsg(e: unknown) {
 }
 
 function getApiBaseUrl() {
-  if (process.env.NEXT_PUBLIC_API_BASE_URL) return process.env.NEXT_PUBLIC_API_BASE_URL;
+  if (process.env.NEXT_PUBLIC_API_BASE_URL)
+    return process.env.NEXT_PUBLIC_API_BASE_URL;
   if (typeof window !== "undefined") {
     return `${window.location.protocol}//${window.location.hostname}:8787`;
   }
@@ -404,7 +401,9 @@ export function AuthView({
                 setGoogleLoading(true);
                 const apiBase = getApiBaseUrl();
                 const returnTo =
-                  typeof window === "undefined" ? "" : window.location.origin + "/";
+                  typeof window === "undefined"
+                    ? ""
+                    : window.location.origin + "/";
                 const url = new URL("/api/auth/google/start", apiBase);
                 url.searchParams.set("returnTo", returnTo);
                 window.location.href = url.toString();
@@ -437,9 +436,7 @@ export function AuthView({
                   ? "0 8px 18px rgba(66, 133, 244, 0.14)"
                   : "0 2px 8px rgba(40, 91, 170, 0.06)",
               transform:
-                socialHover === "google"
-                  ? "translateY(-1px)"
-                  : "translateY(0)",
+                socialHover === "google" ? "translateY(-1px)" : "translateY(0)",
               opacity: !canUseGoogle || isLoading ? 0.6 : 1,
             }}
           >
@@ -566,9 +563,8 @@ export function AuthView({
               lineHeight: 1.5,
             }}
           >
-            Google 로그인을 사용하려면{" "}
-            <code>NEXT_PUBLIC_GOOGLE_CLIENT_ID</code>와 서버의{" "}
-            <code>AUTH_ENABLED=true</code>가 필요해요.
+            Google 로그인을 사용하려면 <code>NEXT_PUBLIC_GOOGLE_CLIENT_ID</code>
+            와 서버의 <code>AUTH_ENABLED=true</code>가 필요해요.
           </p>
         )}
 
