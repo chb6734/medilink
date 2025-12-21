@@ -23,7 +23,10 @@ type GoogleIdApi = {
     client_id: string;
     callback: (resp: GoogleCredentialResponse) => void;
   }) => void;
-  renderButton: (container: HTMLElement, options: Record<string, unknown>) => void;
+  renderButton: (
+    container: HTMLElement,
+    options: Record<string, unknown>
+  ) => void;
 };
 
 function errMsg(e: unknown) {
@@ -36,6 +39,7 @@ export function AuthView({ onDone }: { onDone: () => void }) {
   const [authEnabled, setAuthEnabled] = useState(false);
   const [user, setUser] = useState<SessionUser | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const redirectedRef = useRef(false);
 
   const googleClientId =
     process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID ??
@@ -68,6 +72,14 @@ export function AuthView({ onDone }: { onDone: () => void }) {
     refresh();
   }, []);
 
+  // 로그인 성공 시 자동으로 홈으로 이동
+  useEffect(() => {
+    if (!user) return;
+    if (redirectedRef.current) return;
+    redirectedRef.current = true;
+    onDone();
+  }, [user, onDone]);
+
   const canUseGoogle = useMemo(
     () => !!googleClientId && !!authEnabled,
     [googleClientId, authEnabled]
@@ -81,8 +93,9 @@ export function AuthView({ onDone }: { onDone: () => void }) {
     try {
       setGoogleReady(false);
 
-      const g = (window as unknown as { google?: { accounts?: { id?: GoogleIdApi } } })
-        .google?.accounts?.id;
+      const g = (
+        window as unknown as { google?: { accounts?: { id?: GoogleIdApi } } }
+      ).google?.accounts?.id;
       if (!g) throw new Error("Google Identity not available");
 
       // Clear any previous button
@@ -107,9 +120,8 @@ export function AuthView({ onDone }: { onDone: () => void }) {
       g.renderButton(googleButtonRef.current, {
         theme: "outline",
         size: "large",
-        width: 360,
-        text: "continue_with",
-        shape: "pill",
+        type: "icon",
+        shape: "circle",
       });
 
       setGoogleReady(true);
@@ -342,7 +354,7 @@ export function AuthView({ onDone }: { onDone: () => void }) {
                         const r = await authPhoneStart({ phoneE164: phone });
                         setChallengeId(r.challengeId);
                       } catch (e) {
-                          setError(errMsg(e));
+                        setError(errMsg(e));
                       }
                     }}
                     disabled={!authEnabled}
@@ -375,7 +387,9 @@ export function AuthView({ onDone }: { onDone: () => void }) {
                         }
                       }}
                       disabled={!authEnabled}
-                      title={!authEnabled ? "서버 인증이 꺼져 있어요" : undefined}
+                      title={
+                        !authEnabled ? "서버 인증이 꺼져 있어요" : undefined
+                      }
                     >
                       확인
                     </button>
@@ -499,32 +513,10 @@ export function AuthView({ onDone }: { onDone: () => void }) {
                     justifyContent: "center",
                     gap: 14,
                     padding: "6px 0 2px",
+                    alignItems: "center",
                   }}
                 >
-                  <div
-                    style={{
-                      width: 56,
-                      height: 56,
-                      borderRadius: 999,
-                      border: "1px solid #E5E7EB",
-                      background: "white",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      position: "relative",
-                      overflow: "hidden",
-                    }}
-                    title="Google로 로그인"
-                  >
-                    {/* 실제 로그인 버튼(GIS)을 원형 컨테이너 안에 렌더 */}
-                    <div
-                      ref={googleButtonRef}
-                      style={{
-                        transform: "scale(0.85)",
-                        transformOrigin: "center",
-                      }}
-                    />
-                  </div>
+                  <div ref={googleButtonRef} title="Google로 로그인" />
                 </div>
 
                 {!googleReady && (
