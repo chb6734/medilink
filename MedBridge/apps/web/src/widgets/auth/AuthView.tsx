@@ -1,7 +1,12 @@
 import Script from "next/script";
 import { ArrowLeft, Eye, EyeOff } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { authGoogle, authMe, authPhoneStart, authPhoneVerify } from "@/shared/api";
+import {
+  authGoogle,
+  authMe,
+  authPhoneStart,
+  authPhoneVerify,
+} from "@/shared/api";
 
 type SessionUser = {
   id: string;
@@ -18,7 +23,10 @@ type GoogleIdApi = {
     client_id: string;
     callback: (resp: GoogleCredentialResponse) => void;
   }) => void;
-  renderButton: (container: HTMLElement, options: Record<string, unknown>) => void;
+  renderButton: (
+    container: HTMLElement,
+    options: Record<string, unknown>
+  ) => void;
 };
 
 function errMsg(e: unknown) {
@@ -100,7 +108,7 @@ export function AuthView({
 
   const canUseGoogle = useMemo(
     () => !!googleClientId && !!authEnabled,
-    [googleClientId, authEnabled],
+    [googleClientId, authEnabled]
   );
 
   const initGoogleButton = async () => {
@@ -175,7 +183,10 @@ export function AuthView({
   }
 
   return (
-    <div className="min-h-screen" style={{ background: "var(--color-background)" }}>
+    <div
+      className="min-h-screen"
+      style={{ background: "var(--color-background)" }}
+    >
       {/* Header (Responsive Web App Design) */}
       <div
         style={{
@@ -202,16 +213,31 @@ export function AuthView({
           <ArrowLeft className="w-6 h-6" />
         </button>
         <h1 style={{ marginBottom: "8px" }}>로그인</h1>
-        <p style={{ color: "var(--color-text-secondary)", fontSize: "0.9375rem" }}>
+        <p
+          style={{
+            color: "var(--color-text-secondary)",
+            fontSize: "0.9375rem",
+          }}
+        >
           연속진료 서비스를 이용하시려면 로그인이 필요해요
         </p>
       </div>
 
       <div style={{ padding: "32px 24px" }}>
         {error && (
-          <div className="card" style={{ padding: 16, border: "2px solid #FDE68A" }}>
+          <div
+            className="card"
+            style={{ padding: 16, border: "2px solid #FDE68A" }}
+          >
             <p style={{ margin: 0, color: "#92400E", fontWeight: 700 }}>에러</p>
-            <p style={{ marginTop: 8, marginBottom: 0, color: "#92400E", lineHeight: 1.5 }}>
+            <p
+              style={{
+                marginTop: 8,
+                marginBottom: 0,
+                color: "#92400E",
+                lineHeight: 1.5,
+              }}
+            >
               {error}
             </p>
           </div>
@@ -294,7 +320,11 @@ export function AuthView({
                 }}
                 aria-label={showCode ? "인증번호 숨기기" : "인증번호 보기"}
               >
-                {showCode ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                {showCode ? (
+                  <EyeOff className="w-5 h-5" />
+                ) : (
+                  <Eye className="w-5 h-5" />
+                )}
               </button>
             </div>
           </div>
@@ -314,7 +344,9 @@ export function AuthView({
               try {
                 setPhoneLoading(true);
                 if (!challengeId) {
-                  const r = await authPhoneStart({ phoneE164: toE164Kr(phone) });
+                  const r = await authPhoneStart({
+                    phoneE164: toE164Kr(phone),
+                  });
                   setChallengeId(r.challengeId);
                   return;
                 }
@@ -327,7 +359,11 @@ export function AuthView({
               }
             }}
           >
-            {phoneLoading ? "처리 중..." : challengeId ? "로그인" : "인증번호 받기"}
+            {phoneLoading
+              ? "처리 중..."
+              : challengeId
+                ? "로그인"
+                : "인증번호 받기"}
           </button>
 
           {/* Links (UI only) */}
@@ -390,11 +426,29 @@ export function AuthView({
             margin: "48px 0 32px",
           }}
         >
-          <div style={{ flex: 1, height: "1px", background: "var(--color-border)" }} />
-          <span style={{ color: "var(--color-text-tertiary)", fontSize: "0.875rem", whiteSpace: "nowrap" }}>
+          <div
+            style={{
+              flex: 1,
+              height: "1px",
+              background: "var(--color-border)",
+            }}
+          />
+          <span
+            style={{
+              color: "var(--color-text-tertiary)",
+              fontSize: "0.875rem",
+              whiteSpace: "nowrap",
+            }}
+          >
             간편 로그인
           </span>
-          <div style={{ flex: 1, height: "1px", background: "var(--color-border)" }} />
+          <div
+            style={{
+              flex: 1,
+              height: "1px",
+              background: "var(--color-border)",
+            }}
+          />
         </div>
 
         {canUseGoogle && (
@@ -438,15 +492,30 @@ export function AuthView({
               }}
             >
               <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-                <path d="M19.8 10.2273C19.8 9.51818 19.7364 8.83636 19.6182 8.18182H10V12.05H15.4727C15.2273 13.3 14.5227 14.3591 13.4727 15.0682V17.5773H16.7636C18.6727 15.8318 19.8 13.2727 19.8 10.2273Z" fill="#4285F4"/>
-                <path d="M10 20C12.7 20 14.9636 19.1045 16.7636 17.5773L13.4727 15.0682C12.5909 15.6682 11.4455 16.0227 10 16.0227C7.39545 16.0227 5.19091 14.2636 4.40455 11.9H0.995453V14.4909C2.78636 18.0591 6.10909 20 10 20Z" fill="#34A853"/>
-                <path d="M4.40455 11.9C4.20455 11.3 4.09091 10.6591 4.09091 10C4.09091 9.34091 4.20455 8.7 4.40455 8.1V5.50909H0.995453C0.359091 6.77273 0 8.19545 0 10C0 11.8045 0.359091 13.2273 0.995453 14.4909L4.40455 11.9Z" fill="#FBBC05"/>
-                <path d="M10 3.97727C11.5682 3.97727 12.9682 4.48182 14.0682 5.52727L17.0227 2.57273C14.9591 0.636364 12.6955 -0.5 10 -0.5C6.10909 -0.5 2.78636 1.44091 0.995453 5.00909L4.40455 7.6C5.19091 5.23636 7.39545 3.97727 10 3.97727Z" fill="#EA4335"/>
+                <path
+                  d="M19.8 10.2273C19.8 9.51818 19.7364 8.83636 19.6182 8.18182H10V12.05H15.4727C15.2273 13.3 14.5227 14.3591 13.4727 15.0682V17.5773H16.7636C18.6727 15.8318 19.8 13.2727 19.8 10.2273Z"
+                  fill="#4285F4"
+                />
+                <path
+                  d="M10 20C12.7 20 14.9636 19.1045 16.7636 17.5773L13.4727 15.0682C12.5909 15.6682 11.4455 16.0227 10 16.0227C7.39545 16.0227 5.19091 14.2636 4.40455 11.9H0.995453V14.4909C2.78636 18.0591 6.10909 20 10 20Z"
+                  fill="#34A853"
+                />
+                <path
+                  d="M4.40455 11.9C4.20455 11.3 4.09091 10.6591 4.09091 10C4.09091 9.34091 4.20455 8.7 4.40455 8.1V5.50909H0.995453C0.359091 6.77273 0 8.19545 0 10C0 11.8045 0.359091 13.2273 0.995453 14.4909L4.40455 11.9Z"
+                  fill="#FBBC05"
+                />
+                <path
+                  d="M10 3.97727C11.5682 3.97727 12.9682 4.48182 14.0682 5.52727L17.0227 2.57273C14.9591 0.636364 12.6955 -0.5 10 -0.5C6.10909 -0.5 2.78636 1.44091 0.995453 5.00909L4.40455 7.6C5.19091 5.23636 7.39545 3.97727 10 3.97727Z"
+                  fill="#EA4335"
+                />
               </svg>
               구글로 계속하기
             </div>
             {/* Real GIS button (hidden but clickable) */}
-            <div ref={googleButtonRef} style={{ position: "absolute", inset: 0, opacity: 0.001 }} />
+            <div
+              ref={googleButtonRef}
+              style={{ position: "absolute", inset: 0, opacity: 0.001 }}
+            />
           </div>
 
           <button
@@ -473,7 +542,10 @@ export function AuthView({
             title="준비중"
           >
             <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-              <path d="M10 0C4.477 0 0 3.566 0 7.975C0 10.595 1.654 12.903 4.194 14.285L3.228 17.838C3.137 18.142 3.488 18.386 3.739 18.198L7.931 15.234C8.604 15.328 9.296 15.378 10 15.378C15.523 15.378 20 11.812 20 7.403C20 2.994 15.523 0 10 0Z" fill="#191919"/>
+              <path
+                d="M10 0C4.477 0 0 3.566 0 7.975C0 10.595 1.654 12.903 4.194 14.285L3.228 17.838C3.137 18.142 3.488 18.386 3.739 18.198L7.931 15.234C8.604 15.328 9.296 15.378 10 15.378C15.523 15.378 20 11.812 20 7.403C20 2.994 15.523 0 10 0Z"
+                fill="#191919"
+              />
             </svg>
             카카오톡으로 계속하기 (준비중)
           </button>
@@ -502,8 +574,8 @@ export function AuthView({
             title="준비중"
           >
             <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-              <path d="M13.75 7.5L10 12.5L6.25 7.5H13.75Z" fill="white"/>
-              <circle cx="10" cy="10" r="9" stroke="white" strokeWidth="2"/>
+              <path d="M13.75 7.5L10 12.5L6.25 7.5H13.75Z" fill="white" />
+              <circle cx="10" cy="10" r="9" stroke="white" strokeWidth="2" />
             </svg>
             네이버로 계속하기 (준비중)
           </button>

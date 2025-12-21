@@ -51,8 +51,10 @@ export function Home({
             </p>
             {user ? (
               <h1 style={{ color: "white", marginBottom: 0 }}>
-                {(user.displayName ?? user.phoneE164 ?? user.subject ?? "사용자") +
-                  "님"}
+                {(user.displayName ??
+                  user.phoneE164 ??
+                  user.subject ??
+                  "사용자") + "님"}
               </h1>
             ) : (
               <h1 style={{ color: "white", marginBottom: 0 }}>
