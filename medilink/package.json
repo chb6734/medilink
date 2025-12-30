@@ -1,0 +1,20 @@
+{
+  "name": "medilink",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "packageManager": "pnpm@9.15.0",
+  "scripts": {
+    "dev": "pnpm --filter @medilink/web dev",
+    "build": "pnpm --filter @medilink/web build",
+    "start": "pnpm --filter @medilink/web start",
+    "dev:api": "pnpm --filter @medilink/api start:dev",
+    "build:api": "pnpm --filter @medilink/api build",
+    "start:api": "pnpm --filter @medilink/api start:prod",
+    "dev:legacy:web": "pnpm --filter @medilink/web-vite dev",
+    "dev:legacy:api": "pnpm --filter @medilink/api-fastify dev",
+    "lint": "pnpm --filter @medilink/web lint && pnpm --filter @medilink/api lint"
+  }
+}
