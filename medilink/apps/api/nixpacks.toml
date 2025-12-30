@@ -1,0 +1,15 @@
+[phases.setup]
+nixPkgs = ["nodejs-20_x", "pnpm"]
+
+[phases.install]
+cmds = [
+  "cd ../..",
+  "pnpm install --frozen-lockfile",
+  "pnpm --filter @medilink/db build",
+  "pnpm --filter @medilink/api build"
+]
+
+[phases.build]
+
+[start]
+cmd = "cd apps/api && node dist/main.js"
