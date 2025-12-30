@@ -49,6 +49,15 @@ export async function createRecord(params: {
   facilityType?: "clinic" | "hospital" | "pharmacy" | "unknown";
   doctorDiagnosis?: string;
   noteDoctorSaid?: string;
+  prescribedAt?: string;
+  dispensedAt?: string;
+  medications?: Array<{
+    name: string;
+    dosage?: string;
+    frequency?: string;
+    confidence?: number;
+  }>;
+  daysSupply?: number;
 }) {
   const form = new FormData();
   form.append("file", params.file);
@@ -62,6 +71,10 @@ export async function createRecord(params: {
   if (params.facilityType) qs.set("facilityType", params.facilityType);
   if (params.doctorDiagnosis) qs.set("doctorDiagnosis", params.doctorDiagnosis);
   if (params.noteDoctorSaid) qs.set("noteDoctorSaid", params.noteDoctorSaid);
+  if (params.prescribedAt) qs.set("prescribedAt", params.prescribedAt);
+  if (params.dispensedAt) qs.set("dispensedAt", params.dispensedAt);
+  if (params.medications) qs.set("medications", JSON.stringify(params.medications));
+  if (params.daysSupply !== undefined) qs.set("daysSupply", String(params.daysSupply));
 
   return await fetchForm(`/api/records?${qs.toString()}`, form);
 }

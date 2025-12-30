@@ -19,7 +19,7 @@ importers:
       '@google/genai':
         specifier: ^1.0.0
         version: 1.34.0
-      '@medbridge/db':
+      '@medilink/db':
         specifier: workspace:*
         version: link:../../packages/db
       '@nestjs/common':
@@ -158,7 +158,7 @@ importers:
       '@google-cloud/vision':
         specifier: ^5.0.0
         version: 5.3.4
-      '@medbridge/db':
+      '@medilink/db':
         specifier: workspace:*
         version: link:../../packages/db
       dotenv:

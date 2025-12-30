@@ -33,7 +33,7 @@ export default function DoctorPreviewPage() {
     useState<QuestionnaireData | null>(null);
   const [patient, setPatient] = useState<{
     name: string;
-    phone?: string;
+    phone: string;
     age?: number;
     bloodType?: string;
     height?: number;
@@ -65,9 +65,11 @@ export default function DoctorPreviewPage() {
           (userData.user as any)?.displayName ||
           (userData.user as any)?.phoneE164?.replace(/^\+82/, "0") ||
           "환자";
+        const userPhone =
+          (userData.user as any)?.phoneE164?.replace(/^\+82/, "0") || "";
         setPatient({
           name: userName,
-          phone: (userData.user as any)?.phoneE164?.replace(/^\+82/, "0"),
+          phone: userPhone,
         });
 
         if (summaryData) {
@@ -77,14 +79,14 @@ export default function DoctorPreviewPage() {
             const latestIntake = summaryData.intakeForms[0];
             setQuestionnaireData({
               hospitalName: summaryData.records[0]?.hospitalName || "",
-              chiefComplaint: latestIntake.chiefComplaint,
-              symptomStart: latestIntake.symptomStart,
-              symptomProgress: latestIntake.symptomProgress,
+              chiefComplaint: latestIntake.chiefComplaint || "",
+              symptomStart: latestIntake.symptomStart || "",
+              symptomProgress: latestIntake.symptomProgress || "",
               symptomDetail: "",
               medicationCompliance: "",
-              sideEffects: latestIntake.sideEffects,
-              allergies: latestIntake.allergies,
-              patientNotes: latestIntake.patientNotes,
+              sideEffects: latestIntake.sideEffects || "",
+              allergies: latestIntake.allergies || "",
+              patientNotes: latestIntake.patientNotes || "",
             });
           }
           setAiAnalysis(summaryData.aiAnalysis || null);
