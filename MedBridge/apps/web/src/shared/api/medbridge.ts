@@ -22,6 +22,16 @@ export type PreviewOcrResponse = {
     dosesPerDay: number | null;
     totalDoses: number | null;
   }> | null;
+  // Vision API bounding box 정보
+  textAnnotations?: Array<{
+    text: string;
+    boundingBox: {
+      x: number;
+      y: number;
+      width: number;
+      height: number;
+    };
+  }>;
 };
 
 export async function previewOcr(file: File): Promise<PreviewOcrResponse> {
@@ -128,4 +138,113 @@ export async function authPhoneVerify(params: {
     headers: { "content-type": "application/json" },
     body: JSON.stringify(params),
   });
+}
+
+export async function getDoctorSummary(params: { patientId: string }) {
+  const qs = new URLSearchParams({ patientId: params.patientId });
+  return await fetchJson<{
+    records: Array<{
+      id: string;
+      prescriptionDate: string;
+      hospitalName?: string;
+      pharmacyName?: string;
+      chiefComplaint?: string;
+      diagnosis?: string;
+      medications: Array<{
+        id: string;
+        name: string;
+        dosage: string;
+        frequency: string;
+        startDate: string;
+        endDate?: string;
+        prescribedBy: string;
+        confidence?: number;
+      }>;
+      ocrConfidence?: number;
+    }>;
+    intakeForms: Array<{
+      id: string;
+      chiefComplaint: string;
+      symptomStart: string;
+      symptomProgress: string;
+      sideEffects: string;
+      allergies: string;
+      patientNotes?: string;
+      createdAt: string;
+    }>;
+    currentMedications: Array<{
+      id: string;
+      name: string;
+      dosage: string;
+      frequency: string;
+      startDate: string;
+      endDate: string | null;
+      prescribedBy: string;
+      confidence?: number;
+      recordId: string;
+      recordDate: string;
+    }>;
+    medicationHistory: Array<{
+      date: string;
+      taken: boolean;
+      symptomLevel: number;
+      notes: string | null;
+    }>;
+    aiAnalysis?: string | null;
+  }>(`/api/records/doctor-summary?${qs.toString()}`, {
+    method: "GET",
+  });
+}
+
+export async function getRecords(params: { patientId: string }) {
+  const qs = new URLSearchParams({ patientId: params.patientId });
+  return await fetchJson<{
+    records: Array<{
+      id: string;
+      prescriptionDate: string;
+      hospitalName?: string;
+      pharmacyName?: string;
+      chiefComplaint?: string;
+      diagnosis?: string;
+      medications: Array<{
+        id: string;
+        name: string;
+        dosage: string;
+        frequency: string;
+        startDate: string;
+        endDate?: string;
+        prescribedBy: string;
+        confidence?: number;
+      }>;
+      daysSupply?: number;
+      ocrConfidence?: number;
+    }>;
+  }>(`/api/records?${qs.toString()}`, {
+    method: "GET",
+  });
+}
+
+export async function updateRecord(params: {
+  recordId: string;
+  dailyLog?: Record<string, boolean>;
+  alarmTimes?: string[];
+  medications?: Array<{
+    id: string;
+    name: string;
+    dosage: string;
+    frequency: string;
+  }>;
+}) {
+  return await fetchJson<{ id: string; updated: boolean }>(
+    `/api/records/${params.recordId}`,
+    {
+      method: "PUT",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        dailyLog: params.dailyLog,
+        alarmTimes: params.alarmTimes,
+        medications: params.medications,
+      }),
+    }
+  );
 }

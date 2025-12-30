@@ -10,7 +10,7 @@ export function parseMedCandidates(text: string) {
   const uniq: string[] = [];
   const seen = new Set<string>();
   for (const l of lines) {
-    const key = l.replace(/\s+/g, " ");
+    const key = l.replace(/\s+/g, ' ');
     if (seen.has(key)) continue;
     seen.add(key);
     uniq.push(key);
@@ -18,5 +18,3 @@ export function parseMedCandidates(text: string) {
   }
   return uniq;
 }
-
-

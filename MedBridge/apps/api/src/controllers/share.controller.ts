@@ -10,32 +10,32 @@ import {
   Body,
   NotFoundException,
   GoneException,
-} from "@nestjs/common";
-import type { Request } from "express";
-import { z } from "zod";
-import crypto from "node:crypto";
-import { prisma } from "@medbridge/db";
-import { useInMemoryStore } from "../lib/config";
-import { isAuthEnabled } from "../lib/auth";
-import { randomToken, sha256Base64Url } from "../lib/crypto";
+} from '@nestjs/common';
+import type { Request } from 'express';
+import { z } from 'zod';
+import crypto from 'node:crypto';
+import { prisma } from '@medbridge/db';
+import { useInMemoryStore } from '../lib/config';
+import { isAuthEnabled } from '../lib/auth';
+import { randomToken, sha256Base64Url } from '../lib/crypto';
 import {
   memCreateShare,
   memGetRecords,
   memGetShareByHash,
   memRevokeShares,
-} from "../lib/memory";
+} from '../lib/memory';
 
 function requireAuth(req: Request) {
   if (!isAuthEnabled()) return;
-  if (!req.session?.user) throw new UnauthorizedException("unauthorized");
+  if (!req.session?.user) throw new UnauthorizedException('unauthorized');
 }
 
 function ensureDbConfigured() {
   if (useInMemoryStore) return;
   if (!process.env.DATABASE_URL) {
     throw new ServiceUnavailableException({
-      error: "db_not_configured",
-      hint: "Set DATABASE_URL",
+      error: 'db_not_configured',
+      hint: 'Set DATABASE_URL',
     });
   }
 }
@@ -43,7 +43,7 @@ function ensureDbConfigured() {
 @Controller()
 export class ShareController {
   // Create share token (TTL 10min) - patient-only re-issue should revoke prior tokens
-  @Post("/api/share-tokens")
+  @Post('/api/share-tokens')
   async createShareToken(@Req() req: Request, @Body() body: unknown) {
     ensureDbConfigured();
     requireAuth(req);
@@ -57,7 +57,7 @@ export class ShareController {
 
     if (!parsed.success) {
       throw new BadRequestException({
-        error: "invalid_body",
+        error: 'invalid_body',
         details: parsed.error.flatten(),
       });
     }
@@ -94,18 +94,23 @@ export class ShareController {
   }
 
   // Clinician viewer (no login) - TTL within re-open allowed
-  @Get("/share/:token")
-  async getShare(@Req() req: Request, @Param("token") tokenParam: string) {
+  @Get('/share/:token')
+  async getShare(@Req() req: Request, @Param('token') tokenParam: string) {
     ensureDbConfigured();
-    const params = z.object({ token: z.string().min(10) }).safeParse({ token: tokenParam });
-    if (!params.success) throw new BadRequestException({ error: "invalid_token" });
+    const params = z
+      .object({ token: z.string().min(10) })
+      .safeParse({ token: tokenParam });
+    if (!params.success)
+      throw new BadRequestException({ error: 'invalid_token' });
 
     const tokenHash = sha256Base64Url(params.data.token);
 
     if (useInMemoryStore) {
       const share = memGetShareByHash(tokenHash);
-      if (!share || share.revokedAt) throw new NotFoundException({ error: "not_found" });
-      if (share.expiresAt.getTime() <= Date.now()) throw new GoneException({ error: "expired" });
+      if (!share || share.revokedAt)
+        throw new NotFoundException({ error: 'not_found' });
+      if (share.expiresAt.getTime() <= Date.now())
+        throw new GoneException({ error: 'expired' });
 
       const records = memGetRecords(share.patientId);
       return {
@@ -132,22 +137,24 @@ export class ShareController {
       },
     });
 
-    if (!share || share.revokedAt) throw new NotFoundException({ error: "not_found" });
-    if (share.expiresAt.getTime() <= Date.now()) throw new GoneException({ error: "expired" });
+    if (!share || share.revokedAt)
+      throw new NotFoundException({ error: 'not_found' });
+    if (share.expiresAt.getTime() <= Date.now())
+      throw new GoneException({ error: 'expired' });
 
     await prisma.accessLog.create({
       data: {
         shareTokenId: share.id,
         ipHash: req.ip ? sha256Base64Url(req.ip) : undefined,
-        userAgentHash: req.headers["user-agent"]
-          ? sha256Base64Url(String(req.headers["user-agent"]))
+        userAgentHash: req.headers['user-agent']
+          ? sha256Base64Url(String(req.headers['user-agent']))
           : undefined,
       },
     });
 
     const records = await prisma.prescriptionRecord.findMany({
       where: { patientId: share.patientId },
-      orderBy: { createdAt: "desc" },
+      orderBy: { createdAt: 'desc' },
       take: 20,
       include: { medItems: true, ocrExtraction: true },
     });
@@ -165,11 +172,10 @@ export class ShareController {
           nameRaw: m.nameRaw,
           needsVerification: m.needsVerification,
         })),
-        geminiSummary: (r.ocrExtraction?.fieldsJson as any)?.geminiSummary ?? null,
+        geminiSummary:
+          (r.ocrExtraction?.fieldsJson as any)?.geminiSummary ?? null,
         rawText: r.ocrExtraction?.rawText ?? null,
       })),
     };
   }
 }
-
-

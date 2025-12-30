@@ -15,9 +15,21 @@ function getApiBaseUrl() {
   return "http://127.0.0.1:8787";
 }
 
-async function parseError(resp: Response) {
+async function parseError(resp: globalThis.Response) {
   const text = await resp.text();
-  const err = new Error(text || resp.statusText);
+  let message = text || resp.statusText || `API Error ${resp.status}`;
+
+  // 만약 응답이 JSON 형태라면 message 필드만 추출 시도
+  try {
+    const json = JSON.parse(text);
+    if (json.message) {
+      message = json.message;
+    }
+  } catch {
+    // JSON이 아니면 기존 text 사용
+  }
+
+  const err = new Error(String(message));
   (err as any).status = resp.status;
   return err;
 }

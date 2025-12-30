@@ -34,6 +34,13 @@ const otpStore = new Map<
 export class AuthController {
   @Get('/api/auth/me')
   me(@Req() req: Request) {
+    console.log('🔍 /api/auth/me 호출:', {
+      hasSession: !!req.session,
+      sessionId: req.sessionID,
+      hasUser: !!req.session?.user,
+      userId: req.session?.user?.id,
+      cookies: req.headers.cookie,
+    });
     return {
       authEnabled: isAuthEnabled(),
       user: req.session?.user ?? null,
@@ -112,6 +119,7 @@ export class AuthController {
       }
     }
 
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
     const url = client.generateAuthUrl({
       access_type: 'offline',
       scope: ['openid', 'email', 'profile'],
@@ -119,6 +127,7 @@ export class AuthController {
       prompt: 'select_account',
     });
 
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
     return res.redirect(url);
   }
 
@@ -126,7 +135,7 @@ export class AuthController {
   async googleCallback(
     @Req() req: Request,
     @Res() res: Response,
-    @Query() query: any,
+    @Query() query: unknown,
   ) {
     if (!isAuthEnabled()) throw new NotFoundException('auth_disabled');
 
@@ -157,16 +166,21 @@ export class AuthController {
     } catch (e) {
       return res
         .status(500)
-        .send(`google_oauth_not_configured: ${String((e as Error)?.message ?? e)}`);
+        .send(
+          `google_oauth_not_configured: ${String((e as Error)?.message ?? e)}`,
+        );
     }
     if (!code) return res.status(400).send('missing_code');
 
     try {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
       const { tokens } = await client.getToken(code);
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
       if (!tokens.id_token) return res.status(401).send('missing_id_token');
 
       // verify id token
       const ticket = await getGoogleClient().verifyIdToken({
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
         idToken: tokens.id_token,
         audience: process.env.GOOGLE_OAUTH_CLIENT_ID,
       });
@@ -181,28 +195,38 @@ export class AuthController {
       };
       req.session.googleOAuth = undefined;
 
-      const fallback = `${req.protocol}://${req.hostname}:3000/`;
-      const candidate = saved.returnTo;
-      let dest = fallback;
-      if (candidate) {
-        try {
-          const u = new URL(candidate);
-          const allowOrigin = process.env.WEB_ORIGIN;
-          if (allowOrigin && candidate.startsWith(allowOrigin)) {
-            dest = candidate;
-          } else if (u.hostname === req.hostname && u.port === '3000') {
-            dest = candidate;
-          }
-        } catch {
-          // ignore
+      // 세션 저장 후 리다이렉트 (세션이 저장되기 전에 리다이렉트되면 쿠키가 전송되지 않음)
+      req.session.save((err) => {
+        if (err) {
+          console.error('세션 저장 오류:', err);
+          return res.status(500).send('session_save_error');
         }
-      }
 
-      return res.redirect(dest);
+        const fallback = `${req.protocol}://${req.hostname}:3000/`;
+        const candidate = saved.returnTo;
+        let dest = fallback;
+        if (candidate) {
+          try {
+            const u = new URL(candidate);
+            const allowOrigin = process.env.WEB_ORIGIN;
+            if (allowOrigin && candidate.startsWith(allowOrigin)) {
+              dest = candidate;
+            } else if (u.hostname === req.hostname && u.port === '3000') {
+              dest = candidate;
+            }
+          } catch {
+            // ignore
+          }
+        }
+
+        return res.redirect(dest);
+      });
     } catch (e) {
       return res
         .status(401)
-        .send(`google_oauth_exchange_failed: ${String((e as Error)?.message ?? e)}`);
+        .send(
+          `google_oauth_exchange_failed: ${String((e as Error)?.message ?? e)}`,
+        );
     }
   }
 
@@ -284,7 +308,18 @@ export class AuthController {
       phoneE164: entry.phoneE164,
     };
     otpStore.delete(parsed.data.challengeId);
-    return { ok: true };
+
+    // 세션 저장 후 응답
+    return new Promise((resolve, reject) => {
+      req.session.save((err) => {
+        if (err) {
+          console.error('세션 저장 오류:', err);
+          reject(new Error('session_save_error'));
+        } else {
+          resolve({ ok: true });
+        }
+      });
+    });
   }
 
   @Post('/api/auth/logout')

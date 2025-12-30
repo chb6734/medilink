@@ -1,7 +1,7 @@
-import "express-session";
-import type { SessionUser } from "../lib/auth";
+import 'express-session';
+import type { SessionUser } from '../lib/auth';
 
-declare module "express-session" {
+declare module 'express-session' {
   interface SessionData {
     user?: SessionUser;
     googleOAuth?: {
@@ -11,5 +11,3 @@ declare module "express-session" {
     };
   }
 }
-
-

@@ -97,7 +97,7 @@ export function AuthView({
     const msg = sp.get("message");
     if (e === "google_oauth_not_configured") {
       setError(
-        `Google OAuth 설정이 필요해요. API 서버 환경변수(GOOGLE_OAUTH_CLIENT_ID/SECRET/REDIRECT_URI)를 확인하세요.\n${msg ? `(${msg})` : ""}`,
+        `Google OAuth 설정이 필요해요. API 서버 환경변수(GOOGLE_OAUTH_CLIENT_ID/SECRET/REDIRECT_URI)를 확인하세요.\n${msg ? `(${msg})` : ""}`
       );
       setGoogleLoading(false);
       return;

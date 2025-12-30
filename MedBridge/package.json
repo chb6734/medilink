@@ -9,8 +9,10 @@
   "scripts": {
     "dev": "pnpm --filter @medbridge/web dev",
     "build": "pnpm --filter @medbridge/web build",
+    "start": "pnpm --filter @medbridge/web start",
     "dev:api": "pnpm --filter @medbridge/api start:dev",
     "build:api": "pnpm --filter @medbridge/api build",
+    "start:api": "pnpm --filter @medbridge/api start:prod",
     "dev:legacy:web": "pnpm --filter @medbridge/web-vite dev",
     "dev:legacy:api": "pnpm --filter @medbridge/api-fastify dev",
     "lint": "pnpm --filter @medbridge/web lint && pnpm --filter @medbridge/api lint"

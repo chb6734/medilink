@@ -3,64 +3,129 @@
 import { DoctorView } from "@/widgets/doctor/DoctorView";
 import type { PrescriptionRecord } from "@/entities/record/model/types";
 import type { QuestionnaireData } from "@/entities/questionnaire/model/types";
+import { getDoctorSummary, authMe } from "@/shared/api";
+import { getOrCreatePatientId } from "@/entities/patient/lib/patientId";
+import { useEffect, useState } from "react";
+
+export type MedicationHistoryItem = {
+  date: string;
+  taken: boolean;
+  symptomLevel: number;
+  notes: string | null;
+};
+
+export type CurrentMedication = {
+  id: string;
+  name: string;
+  dosage: string;
+  frequency: string;
+  startDate: string;
+  endDate: string | null;
+  prescribedBy: string;
+  confidence?: number;
+  recordId: string;
+  recordDate: string;
+};
 
 export default function DoctorPreviewPage() {
-  const records: PrescriptionRecord[] = [
-    {
-      id: "demo-1",
-      prescriptionDate: new Date().toISOString().slice(0, 10),
-      hospitalName: "OO내과의원",
-      pharmacyName: "OO약국",
-      medications: [
-        {
-          id: "m-1",
-          name: "아목시실린",
-          dosage: "500mg",
-          frequency: "하루 3회",
-          startDate: new Date().toISOString().slice(0, 10),
-          prescribedBy: "OO내과의원",
-          confidence: 95,
-        },
-        {
-          id: "m-2",
-          name: "타이레놀",
-          dosage: "650mg",
-          frequency: "필요 시",
-          startDate: new Date().toISOString().slice(0, 10),
-          prescribedBy: "OO내과의원",
-          confidence: 92,
-        },
-      ],
-      ocrConfidence: 92,
-    },
-  ];
+  const [records, setRecords] = useState<PrescriptionRecord[]>([]);
+  const [questionnaireData, setQuestionnaireData] =
+    useState<QuestionnaireData | null>(null);
+  const [patient, setPatient] = useState<{
+    name: string;
+    phone?: string;
+    age?: number;
+    bloodType?: string;
+    height?: number;
+    weight?: number;
+  } | null>(null);
+  const [aiAnalysis, setAiAnalysis] = useState<string | null>(null);
+  const [medicationHistory, setMedicationHistory] = useState<
+    MedicationHistoryItem[]
+  >([]);
+  const [currentMedications, setCurrentMedications] = useState<
+    CurrentMedication[]
+  >([]);
+  const [loading, setLoading] = useState(true);
 
-  const questionnaireData: QuestionnaireData = {
-    hospitalName: "OO내과의원",
-    chiefComplaint: "발열 및 인후통이 3일째 지속됩니다.",
-    symptomStart: "3일 전",
-    symptomProgress: "점점 악화",
-    symptomDetail: "기침/가래 동반, 밤에 더 심함",
-    medicationCompliance: "대부분 잘 복용했어요",
-    sideEffects: "없음",
-    allergies: "없음",
-    patientNotes: "지난번에 같은 증상으로 항생제 복용 후 호전된 적이 있어요.",
-  };
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const patientId = getOrCreatePatientId();
+        const [userData, summaryData] = await Promise.all([
+          authMe().catch(() => ({ authEnabled: false, user: null })),
+          getDoctorSummary({ patientId }).catch(() => null),
+        ]);
+
+        if (cancelled) return;
+
+        // Set patient name from user data
+        const userName =
+          (userData.user as any)?.displayName ||
+          (userData.user as any)?.phoneE164?.replace(/^\+82/, "0") ||
+          "환자";
+        setPatient({
+          name: userName,
+          phone: (userData.user as any)?.phoneE164?.replace(/^\+82/, "0"),
+        });
+
+        if (summaryData) {
+          setRecords(summaryData.records);
+          setCurrentMedications(summaryData.currentMedications || []);
+          if (summaryData.intakeForms.length > 0) {
+            const latestIntake = summaryData.intakeForms[0];
+            setQuestionnaireData({
+              hospitalName: summaryData.records[0]?.hospitalName || "",
+              chiefComplaint: latestIntake.chiefComplaint,
+              symptomStart: latestIntake.symptomStart,
+              symptomProgress: latestIntake.symptomProgress,
+              symptomDetail: "",
+              medicationCompliance: "",
+              sideEffects: latestIntake.sideEffects,
+              allergies: latestIntake.allergies,
+              patientNotes: latestIntake.patientNotes,
+            });
+          }
+          setAiAnalysis(summaryData.aiAnalysis || null);
+          setMedicationHistory(summaryData.medicationHistory || []);
+        }
+      } catch (e) {
+        console.error("환자진료 요약 데이터 로드 실패:", e);
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  if (loading) {
+    return (
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "center",
+          alignItems: "center",
+          minHeight: "100vh",
+        }}
+      >
+        <p>로딩 중...</p>
+      </div>
+    );
+  }
 
   return (
     <DoctorView
       records={records}
       questionnaireData={questionnaireData}
-      patient={{
-        name: "홍길동",
-        phone: "010-1234-5678",
-        age: 34,
-        bloodType: "A+",
-        height: 172,
-        weight: 68,
-      }}
+      patient={patient || undefined}
+      aiAnalysis={aiAnalysis}
+      medicationHistory={medicationHistory}
+      currentMedications={currentMedications}
     />
   );
 }
-
-

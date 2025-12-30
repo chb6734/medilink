@@ -47,10 +47,11 @@ model Patient {
   authProvider String?
   authSubject  String?
 
-  records      PrescriptionRecord[]
-  intakes      IntakeForm[]
-  shareTokens  ShareToken[]
-  reminders    Reminder[]
+  records         PrescriptionRecord[]
+  intakes         IntakeForm[]
+  shareTokens     ShareToken[]
+  reminders       Reminder[]
+  dailyConditions DailyCondition[]
 }
 
 model Facility {
@@ -80,15 +81,20 @@ model PrescriptionRecord {
   doctorDiagnosis String?
   noteDoctorSaid  String?
 
-  prescribedAt  DateTime?
-  dispensedAt   DateTime?
-  createdAt     DateTime @default(now())
+  prescribedAt    DateTime?
+  dispensedAt     DateTime?
+  daysSupply      Int?
+  completionDate  DateTime?
+  createdAt       DateTime @default(now())
 
-  ocrExtraction OcrExtraction?
-  medItems      MedItem[]
+  ocrExtraction    OcrExtraction?
+  medItems         MedItem[]
+  medicationChecks MedicationCheck[]
+  dailyConditions  DailyCondition[]
 
   @@index([patientId, createdAt])
   @@index([chiefComplaint])
+  @@index([completionDate])
 }
 
 model OcrExtraction {
@@ -193,6 +199,47 @@ model ReminderEvent {
   scheduledAt DateTime
   status      ReminderEventStatus @default(sent)
   note        String?
+}
+
+enum ConditionStatus {
+  improving
+  same
+  worsening
+  fluctuating
+}
+
+model MedicationCheck {
+  id                   String             @id @default(uuid())
+  prescriptionRecordId String
+  prescriptionRecord   PrescriptionRecord @relation(fields: [prescriptionRecordId], references: [id], onDelete: Cascade)
+
+  scheduledAt DateTime
+  takenAt     DateTime?
+  isTaken     Boolean   @default(false)
+  dayNumber   Int
+  doseNumber  Int
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@unique([prescriptionRecordId, scheduledAt])
+  @@index([prescriptionRecordId])
+}
+
+model DailyCondition {
+  id                   String             @id @default(uuid())
+  patientId            String
+  patient              Patient            @relation(fields: [patientId], references: [id], onDelete: Cascade)
+
+  recordDate           DateTime
+  status               ConditionStatus
+  note                 String?
+  prescriptionRecordId String?
+  prescriptionRecord   PrescriptionRecord? @relation(fields: [prescriptionRecordId], references: [id], onDelete: SetNull)
+  createdAt            DateTime           @default(now())
+  updatedAt            DateTime           @updatedAt
+
+  @@unique([patientId, recordDate])
+  @@index([patientId])
 }
 
 

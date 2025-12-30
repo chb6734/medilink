@@ -1,4 +1,3 @@
-import { useState } from "react";
 import {
   AlertCircle,
   Calendar,
@@ -34,43 +33,33 @@ export type DoctorPatient = {
   weight?: number;
 };
 
+export type MedicationHistoryItem = {
+  date: string;
+  taken: boolean;
+  symptomLevel: number;
+  notes: string | null;
+};
+
+export type CurrentMedication = {
+  id: string;
+  name: string;
+  dosage: string;
+  frequency: string;
+  startDate: string;
+  endDate: string | null;
+  prescribedBy: string;
+  confidence?: number;
+  recordId: string;
+  recordDate: string;
+};
+
 interface DoctorViewProps {
   records: PrescriptionRecord[];
   questionnaireData: QuestionnaireData | null;
   patient?: DoctorPatient;
-}
-
-function generateMedicationTracking() {
-  const days = 14;
-  const tracking: Array<{
-    date: Date;
-    dateStr: string;
-    dayOfWeek: string;
-    taken: boolean;
-    symptomLevel: number;
-    notes: string | null;
-  }> = [];
-
-  for (let i = days - 1; i >= 0; i--) {
-    const date = new Date();
-    date.setDate(date.getDate() - i);
-
-    tracking.push({
-      date,
-      dateStr: date.toLocaleDateString("ko-KR", { month: "short", day: "numeric" }),
-      dayOfWeek: date.toLocaleDateString("ko-KR", { weekday: "short" }),
-      taken: Math.random() > 0.2,
-      symptomLevel: Math.floor(Math.random() * 5) + 1,
-      notes:
-        Math.random() > 0.7
-          ? ["두통 완화됨", "약간 어지러움", "상태 호전", "컨디션 좋음"][
-              Math.floor(Math.random() * 4)
-            ]
-          : null,
-    });
-  }
-
-  return tracking;
+  aiAnalysis?: string | null;
+  medicationHistory?: MedicationHistoryItem[];
+  currentMedications?: CurrentMedication[];
 }
 
 const DEFAULT_PATIENT: DoctorPatient = {
@@ -82,13 +71,40 @@ const DEFAULT_PATIENT: DoctorPatient = {
   weight: 68,
 };
 
-export function DoctorView({ records, questionnaireData, patient }: DoctorViewProps) {
+export function DoctorView({
+  records,
+  questionnaireData,
+  patient,
+  aiAnalysis,
+  medicationHistory = [],
+  currentMedications = [],
+}: DoctorViewProps) {
   const p = patient ?? DEFAULT_PATIENT;
-  const [medicationTracking] = useState(generateMedicationTracking());
 
-  const adherenceRate = Math.round(
-    (medicationTracking.filter((d) => d.taken).length / medicationTracking.length) * 100,
-  );
+  // Convert medicationHistory to tracking format with date objects
+  const medicationTracking = medicationHistory.map((item) => {
+    const date = new Date(item.date);
+    return {
+      date,
+      dateStr: date.toLocaleDateString("ko-KR", {
+        month: "short",
+        day: "numeric",
+      }),
+      dayOfWeek: date.toLocaleDateString("ko-KR", { weekday: "short" }),
+      taken: item.taken,
+      symptomLevel: item.symptomLevel,
+      notes: item.notes,
+    };
+  });
+
+  const adherenceRate =
+    medicationTracking.length > 0
+      ? Math.round(
+          (medicationTracking.filter((d) => d.taken).length /
+            medicationTracking.length) *
+            100,
+        )
+      : 0;
 
   return (
     <div className="min-h-screen" style={{ background: "#F8FAFC" }}>
@@ -175,7 +191,9 @@ export function DoctorView({ records, questionnaireData, patient }: DoctorViewPr
               >
                 {p.name}
               </h2>
-              <p style={{ opacity: 0.9, fontSize: "0.9375rem", marginBottom: 0 }}>
+              <p
+                style={{ opacity: 0.9, fontSize: "0.9375rem", marginBottom: 0 }}
+              >
                 {p.phone}
               </p>
             </div>
@@ -214,10 +232,19 @@ export function DoctorView({ records, questionnaireData, patient }: DoctorViewPr
               >
                 <Droplet className="w-5 h-5" style={{ color: "white" }} />
               </div>
-              <div style={{ fontSize: "0.75rem", opacity: 0.85, marginBottom: "6px", fontWeight: "600" }}>
+              <div
+                style={{
+                  fontSize: "0.75rem",
+                  opacity: 0.85,
+                  marginBottom: "6px",
+                  fontWeight: "600",
+                }}
+              >
                 혈액형
               </div>
-              <div style={{ fontSize: "1.25rem", fontWeight: "700" }}>{p.bloodType || "N/A"}</div>
+              <div style={{ fontSize: "1.25rem", fontWeight: "700" }}>
+                {p.bloodType || "N/A"}
+              </div>
             </div>
 
             {/* Height */}
@@ -245,7 +272,14 @@ export function DoctorView({ records, questionnaireData, patient }: DoctorViewPr
               >
                 <Ruler className="w-5 h-5" style={{ color: "white" }} />
               </div>
-              <div style={{ fontSize: "0.75rem", opacity: 0.85, marginBottom: "6px", fontWeight: "600" }}>
+              <div
+                style={{
+                  fontSize: "0.75rem",
+                  opacity: 0.85,
+                  marginBottom: "6px",
+                  fontWeight: "600",
+                }}
+              >
                 키
               </div>
               <div style={{ fontSize: "1.25rem", fontWeight: "700" }}>
@@ -278,7 +312,14 @@ export function DoctorView({ records, questionnaireData, patient }: DoctorViewPr
               >
                 <Weight className="w-5 h-5" style={{ color: "white" }} />
               </div>
-              <div style={{ fontSize: "0.75rem", opacity: 0.85, marginBottom: "6px", fontWeight: "600" }}>
+              <div
+                style={{
+                  fontSize: "0.75rem",
+                  opacity: 0.85,
+                  marginBottom: "6px",
+                  fontWeight: "600",
+                }}
+              >
                 몸무게
               </div>
               <div style={{ fontSize: "1.25rem", fontWeight: "700" }}>
@@ -311,10 +352,19 @@ export function DoctorView({ records, questionnaireData, patient }: DoctorViewPr
               >
                 <UserIcon className="w-5 h-5" style={{ color: "white" }} />
               </div>
-              <div style={{ fontSize: "0.75rem", opacity: 0.85, marginBottom: "6px", fontWeight: "600" }}>
+              <div
+                style={{
+                  fontSize: "0.75rem",
+                  opacity: 0.85,
+                  marginBottom: "6px",
+                  fontWeight: "600",
+                }}
+              >
                 나이
               </div>
-              <div style={{ fontSize: "1.25rem", fontWeight: "700" }}>{p.age ? `${p.age}세` : "N/A"}</div>
+              <div style={{ fontSize: "1.25rem", fontWeight: "700" }}>
+                {p.age ? `${p.age}세` : "N/A"}
+              </div>
             </div>
 
             {/* Adherence Rate */}
@@ -342,10 +392,19 @@ export function DoctorView({ records, questionnaireData, patient }: DoctorViewPr
               >
                 <CheckCircle className="w-5 h-5" style={{ color: "white" }} />
               </div>
-              <div style={{ fontSize: "0.75rem", opacity: 0.85, marginBottom: "6px", fontWeight: "600" }}>
+              <div
+                style={{
+                  fontSize: "0.75rem",
+                  opacity: 0.85,
+                  marginBottom: "6px",
+                  fontWeight: "600",
+                }}
+              >
                 복약순응도
               </div>
-              <div style={{ fontSize: "1.25rem", fontWeight: "700" }}>{adherenceRate}%</div>
+              <div style={{ fontSize: "1.25rem", fontWeight: "700" }}>
+                {adherenceRate}%
+              </div>
             </div>
 
             {/* Latest Prescription */}
@@ -373,15 +432,31 @@ export function DoctorView({ records, questionnaireData, patient }: DoctorViewPr
               >
                 <Calendar className="w-5 h-5" style={{ color: "white" }} />
               </div>
-              <div style={{ fontSize: "0.75rem", opacity: 0.85, marginBottom: "6px", fontWeight: "600" }}>
+              <div
+                style={{
+                  fontSize: "0.75rem",
+                  opacity: 0.85,
+                  marginBottom: "6px",
+                  fontWeight: "600",
+                }}
+              >
                 최근 처방
               </div>
-              <div style={{ fontSize: "0.8125rem", fontWeight: "700", lineHeight: "1.3" }}>
+              <div
+                style={{
+                  fontSize: "0.8125rem",
+                  fontWeight: "700",
+                  lineHeight: "1.3",
+                }}
+              >
                 {records.length > 0
-                  ? new Date(records[0].prescriptionDate).toLocaleDateString("ko-KR", {
-                      month: "short",
-                      day: "numeric",
-                    })
+                  ? new Date(records[0].prescriptionDate).toLocaleDateString(
+                      "ko-KR",
+                      {
+                        month: "short",
+                        day: "numeric",
+                      },
+                    )
                   : "없음"}
               </div>
             </div>
@@ -390,43 +465,145 @@ export function DoctorView({ records, questionnaireData, patient }: DoctorViewPr
       </div>
 
       <div style={{ maxWidth: "1200px", margin: "0 auto", padding: "24px" }}>
-        <div style={{ display: "flex", flexDirection: "column", gap: "24px", paddingBottom: "40px" }}>
+        <div
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            gap: "24px",
+            paddingBottom: "40px",
+          }}
+        >
           {/* Chief Complaint */}
           {questionnaireData && (
-            <div style={{ background: "white", padding: "24px", borderRadius: "16px", border: "1px solid #E2E8F0", boxShadow: "0 1px 3px rgba(0,0,0,0.05)" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "16px" }}>
+            <div
+              style={{
+                background: "white",
+                padding: "24px",
+                borderRadius: "16px",
+                border: "1px solid #E2E8F0",
+                boxShadow: "0 1px 3px rgba(0,0,0,0.05)",
+              }}
+            >
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "10px",
+                  marginBottom: "16px",
+                }}
+              >
                 <AlertCircle className="w-5 h-5" style={{ color: "#EF4444" }} />
-                <h2 style={{ fontSize: "1.125rem", fontWeight: "700", color: "#0F172A", marginBottom: 0 }}>
+                <h2
+                  style={{
+                    fontSize: "1.125rem",
+                    fontWeight: "700",
+                    color: "#0F172A",
+                    marginBottom: 0,
+                  }}
+                >
                   주요 증상
                 </h2>
               </div>
-              <div style={{ padding: "16px", background: "#FEF2F2", borderRadius: "12px", borderLeft: "4px solid #EF4444", marginBottom: "16px" }}>
-                <p style={{ color: "#991B1B", fontWeight: "600", lineHeight: "1.6" }}>
+              <div
+                style={{
+                  padding: "16px",
+                  background: "#FEF2F2",
+                  borderRadius: "12px",
+                  borderLeft: "4px solid #EF4444",
+                  marginBottom: "16px",
+                }}
+              >
+                <p
+                  style={{
+                    color: "#991B1B",
+                    fontWeight: "600",
+                    lineHeight: "1.6",
+                  }}
+                >
                   {questionnaireData.chiefComplaint}
                 </p>
               </div>
               <div className="space-y-3">
-                <div style={{ display: "flex", justifyContent: "space-between", paddingBottom: "12px", borderBottom: "1px solid #F1F5F9" }}>
-                  <span style={{ color: "#64748B", fontSize: "0.875rem" }}>증상 시작</span>
-                  <span style={{ color: "#0F172A", fontWeight: "600", fontSize: "0.875rem" }}>
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    paddingBottom: "12px",
+                    borderBottom: "1px solid #F1F5F9",
+                  }}
+                >
+                  <span style={{ color: "#64748B", fontSize: "0.875rem" }}>
+                    증상 시작
+                  </span>
+                  <span
+                    style={{
+                      color: "#0F172A",
+                      fontWeight: "600",
+                      fontSize: "0.875rem",
+                    }}
+                  >
                     {questionnaireData.symptomStart}
                   </span>
                 </div>
-                <div style={{ display: "flex", justifyContent: "space-between", paddingBottom: "12px", borderBottom: "1px solid #F1F5F9" }}>
-                  <span style={{ color: "#64748B", fontSize: "0.875rem" }}>증상 경과</span>
-                  <span style={{ color: "#0F172A", fontWeight: "600", fontSize: "0.875rem" }}>
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    paddingBottom: "12px",
+                    borderBottom: "1px solid #F1F5F9",
+                  }}
+                >
+                  <span style={{ color: "#64748B", fontSize: "0.875rem" }}>
+                    증상 경과
+                  </span>
+                  <span
+                    style={{
+                      color: "#0F172A",
+                      fontWeight: "600",
+                      fontSize: "0.875rem",
+                    }}
+                  >
                     {questionnaireData.symptomProgress}
                   </span>
                 </div>
                 {questionnaireData.sideEffects !== "없음" && (
-                  <div style={{ padding: "12px", background: "#FEF3C7", borderRadius: "8px", marginTop: "12px" }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "4px" }}>
-                      <AlertCircle className="w-4 h-4" style={{ color: "#92400E" }} />
-                      <span style={{ fontSize: "0.8125rem", fontWeight: "600", color: "#92400E" }}>
+                  <div
+                    style={{
+                      padding: "12px",
+                      background: "#FEF3C7",
+                      borderRadius: "8px",
+                      marginTop: "12px",
+                    }}
+                  >
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "8px",
+                        marginBottom: "4px",
+                      }}
+                    >
+                      <AlertCircle
+                        className="w-4 h-4"
+                        style={{ color: "#92400E" }}
+                      />
+                      <span
+                        style={{
+                          fontSize: "0.8125rem",
+                          fontWeight: "600",
+                          color: "#92400E",
+                        }}
+                      >
                         부작용 있음
                       </span>
                     </div>
-                    <p style={{ fontSize: "0.875rem", color: "#78350F", marginBottom: 0 }}>
+                    <p
+                      style={{
+                        fontSize: "0.875rem",
+                        color: "#78350F",
+                        marginBottom: 0,
+                      }}
+                    >
                       {questionnaireData.sideEffects}
                     </p>
                   </div>
@@ -436,111 +613,450 @@ export function DoctorView({ records, questionnaireData, patient }: DoctorViewPr
           )}
 
           {/* Current Medications - AI Analyzed */}
-          <div style={{ background: "white", padding: "24px", borderRadius: "16px", border: "1px solid #E2E8F0", boxShadow: "0 1px 3px rgba(0,0,0,0.05)" }}>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "20px" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+          <div
+            style={{
+              background: "white",
+              padding: "24px",
+              borderRadius: "16px",
+              border: "1px solid #E2E8F0",
+              boxShadow: "0 1px 3px rgba(0,0,0,0.05)",
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                marginBottom: "20px",
+              }}
+            >
+              <div
+                style={{ display: "flex", alignItems: "center", gap: "10px" }}
+              >
                 <Pill className="w-5 h-5" style={{ color: "#285BAA" }} />
-                <h2 style={{ fontSize: "1.125rem", fontWeight: "700", color: "#0F172A", marginBottom: 0 }}>
+                <h2
+                  style={{
+                    fontSize: "1.125rem",
+                    fontWeight: "700",
+                    color: "#0F172A",
+                    marginBottom: 0,
+                  }}
+                >
                   현재 복용 중인 약
                 </h2>
               </div>
-              <div style={{ display: "flex", alignItems: "center", gap: "6px", background: "linear-gradient(135deg, #A78BFA 0%, #8B5CF6 100%)", padding: "6px 12px", borderRadius: "8px", fontSize: "0.75rem", fontWeight: "600", color: "white" }}>
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "6px",
+                  background:
+                    "linear-gradient(135deg, #A78BFA 0%, #8B5CF6 100%)",
+                  padding: "6px 12px",
+                  borderRadius: "8px",
+                  fontSize: "0.75rem",
+                  fontWeight: "600",
+                  color: "white",
+                }}
+              >
                 <Sparkles className="w-3 h-3" />
                 AI 분석
               </div>
             </div>
 
             <div className="space-y-3">
-              {records.slice(0, 1).flatMap((record) =>
-                record.medications.map((med, idx) => (
-                  <div key={med.id} style={{ padding: "16px", background: idx === 0 ? "linear-gradient(135deg, #EEF2FF 0%, #E0E7FF 100%)" : "#F8FAFC", borderRadius: "12px", border: "1px solid #CBD5E1", position: "relative" }}>
+              {currentMedications.length > 0 ? (
+                currentMedications.map((med, idx) => (
+                  <div
+                    key={med.id}
+                    style={{
+                      padding: "16px",
+                      background:
+                        idx === 0
+                          ? "linear-gradient(135deg, #EEF2FF 0%, #E0E7FF 100%)"
+                          : "#F8FAFC",
+                      borderRadius: "12px",
+                      border: "1px solid #CBD5E1",
+                      position: "relative",
+                    }}
+                  >
                     {med.confidence && med.confidence >= 90 && (
-                      <div style={{ position: "absolute", top: "12px", right: "12px", background: "linear-gradient(135deg, #10B981 0%, #059669 100%)", color: "white", padding: "4px 10px", borderRadius: "6px", fontSize: "0.6875rem", fontWeight: "700", display: "flex", alignItems: "center", gap: "4px" }}>
+                      <div
+                        style={{
+                          position: "absolute",
+                          top: "12px",
+                          right: "12px",
+                          background:
+                            "linear-gradient(135deg, #10B981 0%, #059669 100%)",
+                          color: "white",
+                          padding: "4px 10px",
+                          borderRadius: "6px",
+                          fontSize: "0.6875rem",
+                          fontWeight: "700",
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "4px",
+                        }}
+                      >
                         <CheckCircle className="w-3 h-3" />
                         {med.confidence}%
                       </div>
                     )}
-                    <p style={{ fontWeight: "700", fontSize: "1rem", color: "#0F172A", marginBottom: "8px", paddingRight: med.confidence ? "80px" : "0" }}>
+                    <p
+                      style={{
+                        fontWeight: "700",
+                        fontSize: "1rem",
+                        color: "#0F172A",
+                        marginBottom: "8px",
+                        paddingRight: med.confidence ? "80px" : "0",
+                      }}
+                    >
                       {med.name}
                     </p>
-                    <div style={{ fontSize: "0.875rem", color: "#475569", marginBottom: "6px" }}>
-                      <span style={{ fontWeight: "600" }}>{med.dosage}</span> · {med.frequency}
+                    <div
+                      style={{
+                        fontSize: "0.875rem",
+                        color: "#475569",
+                        marginBottom: "6px",
+                      }}
+                    >
+                      <span style={{ fontWeight: "600" }}>{med.dosage}</span> ·{" "}
+                      {med.frequency}
                     </div>
                     <div style={{ fontSize: "0.8125rem", color: "#64748B" }}>
                       처방: {med.prescribedBy || "—"}
                     </div>
                   </div>
-                )),
+                ))
+              ) : (
+                <div
+                  style={{
+                    padding: "16px",
+                    textAlign: "center",
+                    color: "#64748B",
+                    fontSize: "0.875rem",
+                  }}
+                >
+                  현재 복용 중인 약이 없습니다.
+                </div>
               )}
             </div>
+
+            {/* AI Analysis */}
+            {aiAnalysis && (
+              <div
+                style={{
+                  marginTop: "24px",
+                  padding: "20px",
+                  background:
+                    "linear-gradient(135deg, #F0F9FF 0%, #E0F2FE 100%)",
+                  borderRadius: "12px",
+                  border: "2px solid #0EA5E9",
+                }}
+              >
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "10px",
+                    marginBottom: "16px",
+                  }}
+                >
+                  <Sparkles className="w-5 h-5" style={{ color: "#0EA5E9" }} />
+                  <h3
+                    style={{
+                      fontSize: "1rem",
+                      fontWeight: "700",
+                      color: "#0C4A6E",
+                      marginBottom: 0,
+                    }}
+                  >
+                    AI 환자 상태 분석
+                  </h3>
+                </div>
+                <div
+                  style={{
+                    fontSize: "0.9375rem",
+                    color: "#075985",
+                    lineHeight: "1.8",
+                    whiteSpace: "pre-wrap",
+                  }}
+                >
+                  {aiAnalysis}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Medication Tracking Timeline */}
-          <div style={{ background: "white", padding: "24px", borderRadius: "16px", border: "1px solid #E2E8F0", boxShadow: "0 1px 3px rgba(0,0,0,0.05)" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "20px" }}>
+          <div
+            style={{
+              background: "white",
+              padding: "24px",
+              borderRadius: "16px",
+              border: "1px solid #E2E8F0",
+              boxShadow: "0 1px 3px rgba(0,0,0,0.05)",
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "10px",
+                marginBottom: "20px",
+              }}
+            >
               <Calendar className="w-5 h-5" style={{ color: "#285BAA" }} />
-              <h2 style={{ fontSize: "1.125rem", fontWeight: "700", color: "#0F172A", marginBottom: 0 }}>
+              <h2
+                style={{
+                  fontSize: "1.125rem",
+                  fontWeight: "700",
+                  color: "#0F172A",
+                  marginBottom: 0,
+                }}
+              >
                 복약 기록 & 상태 변화
               </h2>
             </div>
 
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: "8px", marginBottom: "24px" }}>
-              {medicationTracking.slice(-7).map((day, idx) => (
+            {medicationTracking.length === 0 ? (
+              <div
+                style={{
+                  padding: "40px 16px",
+                  textAlign: "center",
+                  color: "#64748B",
+                  fontSize: "0.875rem",
+                }}
+              >
+                <Calendar
+                  className="w-12 h-12"
+                  style={{ color: "#CBD5E1", margin: "0 auto 12px" }}
+                />
+                <p style={{ marginBottom: 0 }}>
+                  아직 복약 기록이 없습니다.
+                  <br />
+                  환자가 복약 기록을 입력하면 이곳에 표시됩니다.
+                </p>
+              </div>
+            ) : (
+              <>
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "repeat(7, 1fr)",
+                    gap: "8px",
+                    marginBottom: "24px",
+                  }}
+                >
+                  {medicationTracking.slice(-7).map((day, idx) => (
                 <div key={idx} style={{ textAlign: "center" }}>
-                  <div style={{ fontSize: "0.6875rem", color: "#94A3B8", marginBottom: "6px", fontWeight: "600" }}>
+                  <div
+                    style={{
+                      fontSize: "0.6875rem",
+                      color: "#94A3B8",
+                      marginBottom: "6px",
+                      fontWeight: "600",
+                    }}
+                  >
                     {day.dayOfWeek}
                   </div>
-                  <div style={{ width: "100%", aspectRatio: "1", borderRadius: "10px", background: day.taken ? "linear-gradient(135deg, #10B981 0%, #059669 100%)" : "#F1F5F9", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: "6px", boxShadow: day.taken ? "0 2px 8px rgba(16, 185, 129, 0.3)" : "none", position: "relative" }}>
+                  <div
+                    style={{
+                      width: "100%",
+                      aspectRatio: "1",
+                      borderRadius: "10px",
+                      background: day.taken
+                        ? "linear-gradient(135deg, #10B981 0%, #059669 100%)"
+                        : "#F1F5F9",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      marginBottom: "6px",
+                      boxShadow: day.taken
+                        ? "0 2px 8px rgba(16, 185, 129, 0.3)"
+                        : "none",
+                      position: "relative",
+                    }}
+                  >
                     {day.taken ? (
-                      <CheckCircle className="w-5 h-5" style={{ color: "white" }} />
+                      <CheckCircle
+                        className="w-5 h-5"
+                        style={{ color: "white" }}
+                      />
                     ) : (
-                      <XCircle className="w-5 h-5" style={{ color: "#CBD5E1" }} />
+                      <XCircle
+                        className="w-5 h-5"
+                        style={{ color: "#CBD5E1" }}
+                      />
                     )}
-                    <div style={{ position: "absolute", bottom: "-4px", left: "50%", transform: "translateX(-50%)", width: `${day.symptomLevel * 8}px`, height: "4px", borderRadius: "2px", background: day.symptomLevel <= 2 ? "#10B981" : day.symptomLevel <= 3 ? "#F59E0B" : "#EF4444" }} />
+                    <div
+                      style={{
+                        position: "absolute",
+                        bottom: "-4px",
+                        left: "50%",
+                        transform: "translateX(-50%)",
+                        width: `${day.symptomLevel * 8}px`,
+                        height: "4px",
+                        borderRadius: "2px",
+                        background:
+                          day.symptomLevel <= 2
+                            ? "#10B981"
+                            : day.symptomLevel <= 3
+                              ? "#F59E0B"
+                              : "#EF4444",
+                      }}
+                    />
                   </div>
-                  <div style={{ fontSize: "0.6875rem", color: "#64748B", fontWeight: "600" }}>
+                  <div
+                    style={{
+                      fontSize: "0.6875rem",
+                      color: "#64748B",
+                      fontWeight: "600",
+                    }}
+                  >
                     {day.dateStr.split(" ")[1]}
                   </div>
                 </div>
               ))}
             </div>
 
-            <div style={{ maxHeight: "400px", overflowY: "auto", paddingRight: "8px" }}>
+            <div
+              style={{
+                maxHeight: "400px",
+                overflowY: "auto",
+                paddingRight: "8px",
+              }}
+            >
               <div className="space-y-2">
                 {medicationTracking
                   .slice()
                   .reverse()
                   .map((day, idx) => (
-                    <div key={idx} style={{ padding: "14px 16px", background: day.taken ? "#F0FDF4" : "#FEF2F2", borderRadius: "10px", border: `1px solid ${day.taken ? "#BBF7D0" : "#FECACA"}`, display: "flex", alignItems: "center", gap: "12px" }}>
-                      <div style={{ width: "36px", height: "36px", borderRadius: "8px", background: day.taken ? "linear-gradient(135deg, #10B981 0%, #059669 100%)" : "linear-gradient(135deg, #EF4444 0%, #DC2626 100%)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                    <div
+                      key={idx}
+                      style={{
+                        padding: "14px 16px",
+                        background: day.taken ? "#F0FDF4" : "#FEF2F2",
+                        borderRadius: "10px",
+                        border: `1px solid ${day.taken ? "#BBF7D0" : "#FECACA"}`,
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "12px",
+                      }}
+                    >
+                      <div
+                        style={{
+                          width: "36px",
+                          height: "36px",
+                          borderRadius: "8px",
+                          background: day.taken
+                            ? "linear-gradient(135deg, #10B981 0%, #059669 100%)"
+                            : "linear-gradient(135deg, #EF4444 0%, #DC2626 100%)",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          flexShrink: 0,
+                        }}
+                      >
                         {day.taken ? (
-                          <CheckCircle className="w-4 h-4" style={{ color: "white" }} />
+                          <CheckCircle
+                            className="w-4 h-4"
+                            style={{ color: "white" }}
+                          />
                         ) : (
-                          <XCircle className="w-4 h-4" style={{ color: "white" }} />
+                          <XCircle
+                            className="w-4 h-4"
+                            style={{ color: "white" }}
+                          />
                         )}
                       </div>
                       <div style={{ flex: 1 }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "4px" }}>
-                          <span style={{ fontSize: "0.875rem", fontWeight: "700", color: "#0F172A" }}>
+                        <div
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: "8px",
+                            marginBottom: "4px",
+                          }}
+                        >
+                          <span
+                            style={{
+                              fontSize: "0.875rem",
+                              fontWeight: "700",
+                              color: "#0F172A",
+                            }}
+                          >
                             {day.dateStr}
                           </span>
-                          <span style={{ fontSize: "0.75rem", color: "#64748B" }}>({day.dayOfWeek})</span>
+                          <span
+                            style={{ fontSize: "0.75rem", color: "#64748B" }}
+                          >
+                            ({day.dayOfWeek})
+                          </span>
                         </div>
-                        <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-                          <span style={{ fontSize: "0.75rem", color: day.taken ? "#059669" : "#DC2626", fontWeight: "600" }}>
+                        <div
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: "12px",
+                          }}
+                        >
+                          <span
+                            style={{
+                              fontSize: "0.75rem",
+                              color: day.taken ? "#059669" : "#DC2626",
+                              fontWeight: "600",
+                            }}
+                          >
                             {day.taken ? "복용 완료" : "복용 누락"}
                           </span>
-                          <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
-                            <span style={{ fontSize: "0.6875rem", color: "#64748B" }}>증상</span>
+                          <div
+                            style={{
+                              display: "flex",
+                              alignItems: "center",
+                              gap: "4px",
+                            }}
+                          >
+                            <span
+                              style={{
+                                fontSize: "0.6875rem",
+                                color: "#64748B",
+                              }}
+                            >
+                              증상
+                            </span>
                             <div style={{ display: "flex", gap: "2px" }}>
                               {[1, 2, 3, 4, 5].map((level) => (
-                                <div key={level} style={{ width: "6px", height: "6px", borderRadius: "50%", background: level <= day.symptomLevel ? (day.symptomLevel <= 2 ? "#10B981" : day.symptomLevel <= 3 ? "#F59E0B" : "#EF4444") : "#E2E8F0" }} />
+                                <div
+                                  key={level}
+                                  style={{
+                                    width: "6px",
+                                    height: "6px",
+                                    borderRadius: "50%",
+                                    background:
+                                      level <= day.symptomLevel
+                                        ? day.symptomLevel <= 2
+                                          ? "#10B981"
+                                          : day.symptomLevel <= 3
+                                            ? "#F59E0B"
+                                            : "#EF4444"
+                                        : "#E2E8F0",
+                                  }}
+                                />
                               ))}
                             </div>
                           </div>
                         </div>
                         {day.notes && (
-                          <p style={{ fontSize: "0.75rem", color: "#475569", marginTop: "6px", marginBottom: 0, fontStyle: "italic" }}>
+                          <p
+                            style={{
+                              fontSize: "0.75rem",
+                              color: "#475569",
+                              marginTop: "6px",
+                              marginBottom: 0,
+                              fontStyle: "italic",
+                            }}
+                          >
                             "{day.notes}"
                           </p>
                         )}
@@ -550,79 +1066,281 @@ export function DoctorView({ records, questionnaireData, patient }: DoctorViewPr
               </div>
             </div>
 
-            <div style={{ marginTop: "20px", padding: "16px", background: "#F8FAFC", borderRadius: "10px", border: "1px solid #E2E8F0" }}>
-              <div style={{ fontSize: "0.75rem", fontWeight: "600", color: "#475569", marginBottom: "10px" }}>
+            <div
+              style={{
+                marginTop: "20px",
+                padding: "16px",
+                background: "#F8FAFC",
+                borderRadius: "10px",
+                border: "1px solid #E2E8F0",
+              }}
+            >
+              <div
+                style={{
+                  fontSize: "0.75rem",
+                  fontWeight: "600",
+                  color: "#475569",
+                  marginBottom: "10px",
+                }}
+              >
                 증상 수준
               </div>
               <div style={{ display: "flex", gap: "12px", flexWrap: "wrap" }}>
-                <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                  <div style={{ width: "12px", height: "12px", borderRadius: "3px", background: "#10B981" }} />
-                  <span style={{ fontSize: "0.6875rem", color: "#64748B" }}>양호 (1-2)</span>
+                <div
+                  style={{ display: "flex", alignItems: "center", gap: "6px" }}
+                >
+                  <div
+                    style={{
+                      width: "12px",
+                      height: "12px",
+                      borderRadius: "3px",
+                      background: "#10B981",
+                    }}
+                  />
+                  <span style={{ fontSize: "0.6875rem", color: "#64748B" }}>
+                    양호 (1-2)
+                  </span>
                 </div>
-                <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                  <div style={{ width: "12px", height: "12px", borderRadius: "3px", background: "#F59E0B" }} />
-                  <span style={{ fontSize: "0.6875rem", color: "#64748B" }}>보통 (3)</span>
+                <div
+                  style={{ display: "flex", alignItems: "center", gap: "6px" }}
+                >
+                  <div
+                    style={{
+                      width: "12px",
+                      height: "12px",
+                      borderRadius: "3px",
+                      background: "#F59E0B",
+                    }}
+                  />
+                  <span style={{ fontSize: "0.6875rem", color: "#64748B" }}>
+                    보통 (3)
+                  </span>
                 </div>
-                <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                  <div style={{ width: "12px", height: "12px", borderRadius: "3px", background: "#EF4444" }} />
-                  <span style={{ fontSize: "0.6875rem", color: "#64748B" }}>주의 (4-5)</span>
+                <div
+                  style={{ display: "flex", alignItems: "center", gap: "6px" }}
+                >
+                  <div
+                    style={{
+                      width: "12px",
+                      height: "12px",
+                      borderRadius: "3px",
+                      background: "#EF4444",
+                    }}
+                  />
+                  <span style={{ fontSize: "0.6875rem", color: "#64748B" }}>
+                    주의 (4-5)
+                  </span>
                 </div>
               </div>
             </div>
 
-            <div style={{ marginTop: "32px", paddingTop: "32px", borderTop: "2px solid #E2E8F0" }}>
-              <h3 style={{ fontSize: "1rem", fontWeight: "700", color: "#0F172A", marginBottom: "24px" }}>
+            <div
+              style={{
+                marginTop: "32px",
+                paddingTop: "32px",
+                borderTop: "2px solid #E2E8F0",
+              }}
+            >
+              <h3
+                style={{
+                  fontSize: "1rem",
+                  fontWeight: "700",
+                  color: "#0F172A",
+                  marginBottom: "24px",
+                }}
+              >
                 📊 통계 분석
               </h3>
 
-              <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: "24px" }}>
-                <div style={{ background: "#F8FAFC", padding: "20px", borderRadius: "12px", border: "1px solid #E2E8F0" }}>
-                  <h4 style={{ fontSize: "0.875rem", fontWeight: "700", color: "#475569", marginBottom: "16px" }}>
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "1fr",
+                  gap: "24px",
+                }}
+              >
+                <div
+                  style={{
+                    background: "#F8FAFC",
+                    padding: "20px",
+                    borderRadius: "12px",
+                    border: "1px solid #E2E8F0",
+                  }}
+                >
+                  <h4
+                    style={{
+                      fontSize: "0.875rem",
+                      fontWeight: "700",
+                      color: "#475569",
+                      marginBottom: "16px",
+                    }}
+                  >
                     증상 추이 (최근 14일)
                   </h4>
                   <ResponsiveContainer width="100%" height={200}>
                     <LineChart data={medicationTracking}>
                       <CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0" />
-                      <XAxis dataKey="dateStr" tick={{ fontSize: 11, fill: "#64748B" }} angle={-45} textAnchor="end" height={60} />
-                      <YAxis domain={[0, 5]} tick={{ fontSize: 11, fill: "#64748B" }} label={{ value: "증상 수준", angle: -90, position: "insideLeft", style: { fontSize: 11, fill: "#64748B" } }} />
-                      <Tooltip contentStyle={{ background: "white", border: "1px solid #E2E8F0", borderRadius: "8px", fontSize: "0.75rem" }} />
-                      <Line type="monotone" dataKey="symptomLevel" stroke="#EF4444" strokeWidth={3} dot={{ fill: "#EF4444", strokeWidth: 2, r: 4 }} activeDot={{ r: 6 }} name="증상 수준" />
+                      <XAxis
+                        dataKey="dateStr"
+                        tick={{ fontSize: 11, fill: "#64748B" }}
+                        angle={-45}
+                        textAnchor="end"
+                        height={60}
+                      />
+                      <YAxis
+                        domain={[0, 5]}
+                        tick={{ fontSize: 11, fill: "#64748B" }}
+                        label={{
+                          value: "증상 수준",
+                          angle: -90,
+                          position: "insideLeft",
+                          style: { fontSize: 11, fill: "#64748B" },
+                        }}
+                      />
+                      <Tooltip
+                        contentStyle={{
+                          background: "white",
+                          border: "1px solid #E2E8F0",
+                          borderRadius: "8px",
+                          fontSize: "0.75rem",
+                        }}
+                      />
+                      <Line
+                        type="monotone"
+                        dataKey="symptomLevel"
+                        stroke="#EF4444"
+                        strokeWidth={3}
+                        dot={{ fill: "#EF4444", strokeWidth: 2, r: 4 }}
+                        activeDot={{ r: 6 }}
+                        name="증상 수준"
+                      />
                     </LineChart>
                   </ResponsiveContainer>
                 </div>
 
-                <div style={{ background: "#F8FAFC", padding: "20px", borderRadius: "12px", border: "1px solid #E2E8F0" }}>
-                  <h4 style={{ fontSize: "0.875rem", fontWeight: "700", color: "#475569", marginBottom: "16px" }}>
+                <div
+                  style={{
+                    background: "#F8FAFC",
+                    padding: "20px",
+                    borderRadius: "12px",
+                    border: "1px solid #E2E8F0",
+                  }}
+                >
+                  <h4
+                    style={{
+                      fontSize: "0.875rem",
+                      fontWeight: "700",
+                      color: "#475569",
+                      marginBottom: "16px",
+                    }}
+                  >
                     복약 순응도 (최근 14일)
                   </h4>
                   <ResponsiveContainer width="100%" height={200}>
                     <BarChart data={medicationTracking}>
                       <CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0" />
-                      <XAxis dataKey="dateStr" tick={{ fontSize: 11, fill: "#64748B" }} angle={-45} textAnchor="end" height={60} />
-                      <YAxis domain={[0, 1]} tick={{ fontSize: 11, fill: "#64748B" }} ticks={[0, 1]} tickFormatter={(value) => (value === 1 ? "복용" : "누락")} />
-                      <Tooltip contentStyle={{ background: "white", border: "1px solid #E2E8F0", borderRadius: "8px", fontSize: "0.75rem" }} formatter={(value: any) => [value === 1 ? "복용 완료" : "복용 누락", "상태"]} />
-                      <Bar dataKey={(item: any) => (item.taken ? 1 : 0)} fill="#10B981" radius={[8, 8, 0, 0]} name="복약 상태" />
+                      <XAxis
+                        dataKey="dateStr"
+                        tick={{ fontSize: 11, fill: "#64748B" }}
+                        angle={-45}
+                        textAnchor="end"
+                        height={60}
+                      />
+                      <YAxis
+                        domain={[0, 1]}
+                        tick={{ fontSize: 11, fill: "#64748B" }}
+                        ticks={[0, 1]}
+                        tickFormatter={(value) =>
+                          value === 1 ? "복용" : "누락"
+                        }
+                      />
+                      <Tooltip
+                        contentStyle={{
+                          background: "white",
+                          border: "1px solid #E2E8F0",
+                          borderRadius: "8px",
+                          fontSize: "0.75rem",
+                        }}
+                        formatter={(value: any) => [
+                          value === 1 ? "복용 완료" : "복용 누락",
+                          "상태",
+                        ]}
+                      />
+                      <Bar
+                        dataKey={(item: any) => (item.taken ? 1 : 0)}
+                        fill="#10B981"
+                        radius={[8, 8, 0, 0]}
+                        name="복약 상태"
+                      />
                     </BarChart>
                   </ResponsiveContainer>
                 </div>
               </div>
             </div>
+              </>
+            )}
           </div>
 
           {questionnaireData && questionnaireData.patientNotes && (
-            <div style={{ background: "linear-gradient(135deg, #FEF3C7 0%, #FDE68A 100%)", padding: "24px", borderRadius: "16px", border: "2px solid #FCD34D", marginBottom: "40px" }}>
-              <div style={{ display: "flex", alignItems: "flex-start", gap: "16px" }}>
-                <div style={{ width: "48px", height: "48px", borderRadius: "12px", background: "linear-gradient(135deg, #F59E0B 0%, #D97706 100%)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+            <div
+              style={{
+                background: "linear-gradient(135deg, #FEF3C7 0%, #FDE68A 100%)",
+                padding: "24px",
+                borderRadius: "16px",
+                border: "2px solid #FCD34D",
+                marginBottom: "40px",
+              }}
+            >
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "flex-start",
+                  gap: "16px",
+                }}
+              >
+                <div
+                  style={{
+                    width: "48px",
+                    height: "48px",
+                    borderRadius: "12px",
+                    background:
+                      "linear-gradient(135deg, #F59E0B 0%, #D97706 100%)",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    flexShrink: 0,
+                  }}
+                >
                   <AlertCircle className="w-6 h-6" style={{ color: "white" }} />
                 </div>
                 <div style={{ flex: 1 }}>
-                  <h3 style={{ fontSize: "1.125rem", fontWeight: "700", color: "#92400E", marginBottom: "8px" }}>
+                  <h3
+                    style={{
+                      fontSize: "1.125rem",
+                      fontWeight: "700",
+                      color: "#92400E",
+                      marginBottom: "8px",
+                    }}
+                  >
                     환자 메모
                   </h3>
-                  <p style={{ fontSize: "1rem", color: "#78350F", lineHeight: "1.6", marginBottom: "12px" }}>
+                  <p
+                    style={{
+                      fontSize: "1rem",
+                      color: "#78350F",
+                      lineHeight: "1.6",
+                      marginBottom: "12px",
+                    }}
+                  >
                     {questionnaireData.patientNotes}
                   </p>
-                  <p style={{ fontSize: "0.8125rem", color: "#92400E", marginBottom: 0 }}>
+                  <p
+                    style={{
+                      fontSize: "0.8125rem",
+                      color: "#92400E",
+                      marginBottom: 0,
+                    }}
+                  >
                     ⚠️ 환자가 직접 작성한 내용입니다
                   </p>
                 </div>
@@ -630,8 +1348,24 @@ export function DoctorView({ records, questionnaireData, patient }: DoctorViewPr
             </div>
           )}
 
-          <div style={{ padding: "20px", background: "white", borderRadius: "12px", border: "1px solid #E2E8F0", textAlign: "center", marginBottom: "40px" }}>
-            <p style={{ fontSize: "0.875rem", color: "#64748B", lineHeight: "1.6", marginBottom: 0 }}>
+          <div
+            style={{
+              padding: "20px",
+              background: "white",
+              borderRadius: "12px",
+              border: "1px solid #E2E8F0",
+              textAlign: "center",
+              marginBottom: "40px",
+            }}
+          >
+            <p
+              style={{
+                fontSize: "0.875rem",
+                color: "#64748B",
+                lineHeight: "1.6",
+                marginBottom: 0,
+              }}
+            >
               본 정보는 환자가 제공한 자료를 기반으로 구성되었습니다.
               <br />
               진료 시 환자와 직접 확인하시기 바랍니다.

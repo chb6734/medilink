@@ -1,9 +1,9 @@
-import crypto from "node:crypto";
+import crypto from 'node:crypto';
 
 export type MemoryRecord = {
   id: string;
   patientId: string;
-  recordType: "dispensing_record" | "prescription";
+  recordType: 'dispensing_record' | 'prescription';
   createdAt: Date;
   chiefComplaint?: string;
   doctorDiagnosis?: string;
@@ -43,7 +43,11 @@ export function memRevokeShares(patientId: string) {
   memory.sharesByPatient.set(patientId, arr);
 }
 
-export function memCreateShare(patientId: string, tokenHash: string, expiresAt: Date) {
+export function memCreateShare(
+  patientId: string,
+  tokenHash: string,
+  expiresAt: Date,
+) {
   const s: MemoryShare = {
     id: crypto.randomUUID(),
     patientId,
@@ -66,5 +70,3 @@ export function memGetShareByHash(tokenHash: string) {
 export function memGetRecords(patientId: string) {
   return memory.recordsByPatient.get(patientId) ?? [];
 }
-
-

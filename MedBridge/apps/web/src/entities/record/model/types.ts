@@ -21,6 +21,9 @@ export interface PrescriptionRecord {
   prescriptionDate: string;
   imageUrl?: string;
   ocrConfidence?: number;
+  daysSupply?: number;
+  dailyLog?: Record<string, boolean>;
+  alarmTimes?: string[];
 }
 
 
