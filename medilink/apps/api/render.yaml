@@ -1,0 +1,38 @@
+services:
+  - type: web
+    name: medilink-api
+    runtime: node
+    plan: free
+    buildCommand: cd ../.. && pnpm install && pnpm --filter @medilink/db build && pnpm --filter @medilink/api build
+    startCommand: cd apps/api && pnpm start:prod
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 8787
+      - key: DATABASE_URL
+        sync: false
+      - key: GOOGLE_OAUTH_CLIENT_ID
+        sync: false
+      - key: GOOGLE_OAUTH_CLIENT_SECRET
+        sync: false
+      - key: GOOGLE_OAUTH_REDIRECT_URI
+        sync: false
+      - key: SESSION_SECRET
+        generateValue: true
+      - key: GOOGLE_APPLICATION_CREDENTIALS
+        sync: false
+      - key: GOOGLE_CLOUD_PROJECT
+        sync: false
+      - key: GOOGLE_CLOUD_LOCATION
+        value: us-central1
+      - key: GEMINI_ENABLED
+        value: true
+      - key: GEMINI_MODEL
+        value: gemini-2.5-flash
+      - key: GEMINI_OCR_ENABLED
+        value: true
+      - key: AI_INTEGRATIONS_GEMINI_API_KEY
+        sync: false
+      - key: GEMINI_OCR_MODEL
+        value: gemini-2.5-flash
