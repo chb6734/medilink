@@ -31,6 +31,7 @@ COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 
 # Build the database package first
 WORKDIR /app/packages/db
+RUN pnpm prisma:generate
 RUN pnpm build
 
 # Build the API
@@ -48,6 +49,7 @@ COPY --from=build /app/packages/db ./packages/db
 COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/apps/api/package.json ./apps/api/
 COPY --from=build /app/package.json ./
+COPY --from=build /app/packages/db/prisma ./packages/db/prisma
 
 ENV NODE_ENV=production
 ENV PORT=8787
