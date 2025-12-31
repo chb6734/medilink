@@ -49,11 +49,10 @@ COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/apps/api/package.json ./apps/api/
 COPY --from=build /app/package.json ./
 
-WORKDIR /app/apps/api
-
 ENV NODE_ENV=production
 ENV PORT=8787
 
 EXPOSE 8787
 
-CMD ["node", "dist/main.js"]
+# Run from /app directory with full path
+CMD ["node", "apps/api/dist/main.js"]
