@@ -12,8 +12,11 @@ async function bootstrap() {
     logger: ['log', 'warn', 'error', 'debug', 'verbose'],
   });
 
+  const isProduction = process.env.NODE_ENV === 'production';
+  const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+
   app.enableCors({
-    origin: true,
+    origin: isProduction ? [frontendUrl, /\.vercel\.app$/] : true,
     credentials: true,
   });
 
@@ -32,12 +35,12 @@ async function bootstrap() {
       secret:
         process.env.SESSION_SECRET ??
         'dev-only-secret-change-me-dev-only-secret-change-me',
-      resave: true, // 변경 사항이 없어도 세션을 다시 저장하도록 설정 (일부 환경에서 세션 유실 방지)
+      resave: true,
       saveUninitialized: false,
       cookie: {
         httpOnly: true,
-        sameSite: 'lax', // localhost 개발 환경에서는 lax가 적당함
-        secure: false, // 개발 환경 (HTTP)
+        sameSite: isProduction ? 'none' : 'lax', // 프로덕션에서는 크로스 도메인 허용
+        secure: isProduction, // 프로덕션에서는 HTTPS 필수
         path: '/',
         maxAge: 7 * 24 * 60 * 60 * 1000,
       },
