@@ -127,8 +127,14 @@ export class AuthController {
       prompt: 'select_account',
     });
 
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
-    return res.redirect(url);
+    // 세션 저장 후 리다이렉트 (세션 쿠키가 Set-Cookie로 전송되도록 보장)
+    req.session.save((err) => {
+      if (err) {
+        log.error('세션 저장 실패:', err);
+      }
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
+      res.redirect(url);
+    });
   }
 
   @Get('/api/auth/google/callback')
