@@ -9,13 +9,23 @@ import {
 import type { QuestionnaireData } from "@/entities/questionnaire/model/types";
 
 interface QuestionnaireProps {
+  initialData?: Partial<QuestionnaireData>;
+  visitType?: "new" | "followup";
+  relatedRecordId?: string;
   onBack: () => void;
   onComplete: (data: QuestionnaireData) => void;
 }
 
-export function Questionnaire({ onBack, onComplete }: QuestionnaireProps) {
-  const [step, setStep] = useState(0);
-  const [formData, setFormData] = useState<Partial<QuestionnaireData>>({});
+export function Questionnaire({
+  initialData = {},
+  visitType = "new",
+  relatedRecordId,
+  onBack,
+  onComplete,
+}: QuestionnaireProps) {
+  // Start at step 1 if hospital is already provided, else start at step 0
+  const [step, setStep] = useState(initialData.hospitalName ? 1 : 0);
+  const [formData, setFormData] = useState<Partial<QuestionnaireData>>(initialData);
   const [hospitalQuery, setHospitalQuery] = useState("");
   const [symptomDetail, setSymptomDetail] = useState(
     formData.symptomDetail ?? ""
