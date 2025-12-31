@@ -44,7 +44,7 @@ async function bootstrap() {
     saveUninitialized: false,
     cookie: {
       httpOnly: true,
-      sameSite: isProduction ? 'none' : 'lax', // 프로덕션에서는 크로스 도메인 허용
+      sameSite: (isProduction ? 'none' : 'lax') as 'none' | 'lax', // 프로덕션에서는 크로스 도메인 허용
       secure: isProduction, // 프로덕션에서는 HTTPS 필수
       path: '/',
       maxAge: 7 * 24 * 60 * 60 * 1000,
