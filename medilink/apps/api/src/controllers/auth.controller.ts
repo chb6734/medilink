@@ -128,9 +128,16 @@ export class AuthController {
     });
 
     // 세션 저장 후 리다이렉트 (세션 쿠키가 Set-Cookie로 전송되도록 보장)
+    console.log('🔐 OAuth state 저장:', {
+      sessionId: req.sessionID,
+      state,
+      returnTo,
+    });
     req.session.save((err) => {
       if (err) {
-        log.error('세션 저장 실패:', err);
+        log.error('❌ 세션 저장 실패:', err);
+      } else {
+        console.log('✅ 세션 저장 완료, 리다이렉트 시작');
       }
       // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
       res.redirect(url);
