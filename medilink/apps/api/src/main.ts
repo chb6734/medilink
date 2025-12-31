@@ -15,6 +15,12 @@ async function bootstrap() {
   const isProduction = process.env.NODE_ENV === 'production';
   const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
 
+  console.log('🔧 환경 설정:', {
+    NODE_ENV: process.env.NODE_ENV,
+    isProduction,
+    frontendUrl,
+  });
+
   app.enableCors({
     origin: isProduction ? [frontendUrl, /\.vercel\.app$/] : true,
     credentials: true,
@@ -29,23 +35,29 @@ async function bootstrap() {
     next();
   });
 
-  app.use(
-    session({
-      name: 'mb.sid',
-      secret:
-        process.env.SESSION_SECRET ??
-        'dev-only-secret-change-me-dev-only-secret-change-me',
-      resave: true,
-      saveUninitialized: false,
-      cookie: {
-        httpOnly: true,
-        sameSite: isProduction ? 'none' : 'lax', // 프로덕션에서는 크로스 도메인 허용
-        secure: isProduction, // 프로덕션에서는 HTTPS 필수
-        path: '/',
-        maxAge: 7 * 24 * 60 * 60 * 1000,
-      },
-    }),
-  );
+  const sessionConfig = {
+    name: 'mb.sid',
+    secret:
+      process.env.SESSION_SECRET ??
+      'dev-only-secret-change-me-dev-only-secret-change-me',
+    resave: true,
+    saveUninitialized: false,
+    cookie: {
+      httpOnly: true,
+      sameSite: isProduction ? 'none' : 'lax', // 프로덕션에서는 크로스 도메인 허용
+      secure: isProduction, // 프로덕션에서는 HTTPS 필수
+      path: '/',
+      maxAge: 7 * 24 * 60 * 60 * 1000,
+    },
+  };
+
+  console.log('🍪 세션 쿠키 설정:', {
+    sameSite: sessionConfig.cookie.sameSite,
+    secure: sessionConfig.cookie.secure,
+    httpOnly: sessionConfig.cookie.httpOnly,
+  });
+
+  app.use(session(sessionConfig));
 
   // 모든 요청에서 세션을 강제로 저장하도록 유도 (Express 세션 유실 방지 트릭)
   app.use((req, res, next) => {
