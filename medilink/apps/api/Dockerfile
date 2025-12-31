@@ -55,4 +55,4 @@ ENV PORT=8787
 EXPOSE 8787
 
 # Run from /app directory with full path
-CMD ["node", "apps/api/dist/main.js"]
+CMD ["node", "apps/api/dist/src/main.js"]
