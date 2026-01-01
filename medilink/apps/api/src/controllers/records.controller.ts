@@ -32,6 +32,7 @@ import {
   extractMedicationsFromImage,
   isGeminiOcrEnabled,
 } from '../lib/genaiOcr';
+import { RecordsService } from '../modules/records/records.service';
 
 function requireAuth(req: Request) {
   if (!isAuthEnabled()) {
@@ -67,10 +68,12 @@ function ensureDbConfigured() {
 
 @Controller()
 export class RecordsController {
+  constructor(private readonly recordsService: RecordsService) {}
+
   // Record count for patient (default last 90 days)
   @Get('/api/records/count')
   async count(@Req() req: Request, @Query() query: unknown) {
-    ensureDbConfigured();
+    this.recordsService.ensureDbConfigured();
     requireAuth(req);
 
     const parsed = z
@@ -87,28 +90,16 @@ export class RecordsController {
       });
     }
 
-    const days = parsed.data.days ?? 90;
-    const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
-
-    if (useInMemoryStore) {
-      const records = memGetRecords(parsed.data.patientId);
-      const count = records.filter((r) => r.createdAt >= since).length;
-      return { count, since, days };
-    }
-
-    const count = await prisma.prescriptionRecord.count({
-      where: {
-        patientId: parsed.data.patientId,
-        createdAt: { gte: since },
-      },
-    });
-    return { count, since, days };
+    return this.recordsService.countRecords(
+      parsed.data.patientId,
+      parsed.data.days,
+    );
   }
 
   // Get all records for patient
   @Get('/api/records')
   async getRecords(@Req() req: Request, @Query() query: unknown) {
-    ensureDbConfigured();
+    this.recordsService.ensureDbConfigured();
     requireAuth(req);
 
     const parsed = z
@@ -124,80 +115,8 @@ export class RecordsController {
       });
     }
 
-    if (useInMemoryStore) {
-      const records = memGetRecords(parsed.data.patientId);
-      return {
-        records: records.map((r) => ({
-          id: r.id,
-          prescriptionDate: r.createdAt.toISOString().slice(0, 10),
-          hospitalName: undefined,
-          pharmacyName: undefined,
-          chiefComplaint: r.chiefComplaint || undefined,
-          diagnosis: r.doctorDiagnosis || undefined,
-          medications: (r.meds || []).map((m, idx) => ({
-            id: `${r.id}-${idx}`,
-            name: m.nameRaw,
-            dosage: '',
-            frequency: '',
-            startDate: r.createdAt.toISOString().slice(0, 10),
-            prescribedBy: '',
-            confidence: undefined,
-          })),
-          daysSupply: 7, // Default for memory store
-          ocrConfidence: undefined,
-        })),
-      };
-    }
-
-    const records = await prisma.prescriptionRecord.findMany({
-      where: { patientId: parsed.data.patientId },
-      include: {
-        medItems: true,
-        facility: true,
-        ocrExtraction: true,
-      },
-      orderBy: { createdAt: 'desc' },
-    });
-
-    return {
-      records: records.map((r) => ({
-        id: r.id,
-        prescriptionDate: (r.prescribedAt || r.dispensedAt || r.createdAt)
-          .toISOString()
-          .slice(0, 10),
-        hospitalName:
-          r.facility?.type === 'hospital' || r.facility?.type === 'clinic'
-            ? r.facility.name
-            : undefined,
-        pharmacyName:
-          r.facility?.type === 'pharmacy' ? r.facility.name : undefined,
-        chiefComplaint: r.chiefComplaint || undefined,
-        diagnosis: r.doctorDiagnosis || undefined,
-        medications: r.medItems.map((m) => ({
-          id: m.id,
-          name: m.nameRaw,
-          dosage: m.dose || '',
-          frequency: m.frequency || '',
-          startDate: (r.prescribedAt || r.dispensedAt || r.createdAt)
-            .toISOString()
-            .slice(0, 10),
-          endDate: m.durationDays
-            ? new Date(
-                new Date(
-                  r.prescribedAt || r.dispensedAt || r.createdAt,
-                ).getTime() +
-                  m.durationDays * 24 * 60 * 60 * 1000,
-              )
-                .toISOString()
-                .slice(0, 10)
-            : undefined,
-          prescribedBy: r.facility?.name || '',
-          confidence: m.confidence || undefined,
-        })),
-        daysSupply: r.medItems[0]?.durationDays || 7,
-        ocrConfidence: r.ocrExtraction?.overallConfidence || undefined,
-      })),
-    };
+    const records = await this.recordsService.getRecords(parsed.data.patientId);
+    return { records };
   }
 
   // Update record (for medication compliance tracking)
