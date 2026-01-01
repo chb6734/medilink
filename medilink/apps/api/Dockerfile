@@ -34,11 +34,6 @@ WORKDIR /app/packages/db
 RUN pnpm prisma:generate
 RUN pnpm build
 
-# Debug: Find where Prisma engines are located
-RUN echo "=== Searching for Prisma engines ===" && \
-    find /app -name "libquery_engine*.so.node" -type f 2>/dev/null || true && \
-    find /app -name ".prisma" -type d 2>/dev/null || true
-
 # Build the API
 WORKDIR /app/apps/api
 RUN pnpm build
@@ -56,10 +51,9 @@ COPY --from=build /app/apps/api/package.json ./apps/api/
 COPY --from=build /app/package.json ./
 COPY --from=build /app/packages/db/prisma ./packages/db/prisma
 
-# Copy Prisma engines - will be updated after finding correct path
-# Temporarily disabled until we find the correct location
-# RUN mkdir -p ./packages/db/node_modules/.prisma/client
-# COPY --from=build /app/packages/db/node_modules/.prisma/client/ ./packages/db/node_modules/.prisma/client/
+# Copy Prisma engines to /tmp/prisma-engines (one of Prisma's search paths)
+RUN mkdir -p /tmp/prisma-engines
+COPY --from=build /app/node_modules/.pnpm/@prisma+client@*/node_modules/.prisma/client/*.node /tmp/prisma-engines/
 
 ENV NODE_ENV=production
 ENV PORT=8787
