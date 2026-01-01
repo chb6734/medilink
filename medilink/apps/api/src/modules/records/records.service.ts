@@ -128,9 +128,9 @@ export class RecordsService {
         .toISOString()
         .slice(0, 10),
       hospitalName:
-        r.facility?.type === 'hospital' || r.facility?.type === 'clinic'
-          ? r.facility.name
-          : undefined,
+        r.facility?.type === 'pharmacy'
+          ? undefined
+          : r.facility?.name || undefined,
       pharmacyName:
         r.facility?.type === 'pharmacy' ? r.facility.name : undefined,
       chiefComplaint: r.chiefComplaint || undefined,
@@ -769,9 +769,9 @@ export class RecordsService {
           .toISOString()
           .slice(0, 10),
         hospitalName:
-          r.facility?.type === 'hospital' || r.facility?.type === 'clinic'
-            ? r.facility.name
-            : undefined,
+          r.facility?.type === 'pharmacy'
+            ? undefined
+            : r.facility?.name || undefined,
         pharmacyName:
           r.facility?.type === 'pharmacy' ? r.facility.name : undefined,
         chiefComplaint: r.chiefComplaint || undefined,
