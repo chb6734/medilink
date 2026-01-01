@@ -51,9 +51,9 @@ COPY --from=build /app/apps/api/package.json ./apps/api/
 COPY --from=build /app/package.json ./
 COPY --from=build /app/packages/db/prisma ./packages/db/prisma
 
-# Copy Prisma engines to /tmp/prisma-engines (one of Prisma's search paths)
-RUN mkdir -p /tmp/prisma-engines
-COPY --from=build /app/node_modules/.pnpm/@prisma+client@*/node_modules/.prisma/client/*.node /tmp/prisma-engines/
+# Create symlink for Prisma to find engines at absolute path /node_modules
+# Prisma searches /node_modules first (absolute path from root)
+RUN ln -s /app/node_modules /node_modules
 
 ENV NODE_ENV=production
 ENV PORT=8787
