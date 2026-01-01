@@ -1,32 +1,52 @@
-# Node / package managers
+# Dependencies
 node_modules/
 .pnpm-store/
+.pnp
 .pnp.*
 
-# Env / secrets
-.env
-.env.*
+# Testing
+coverage/
 
-# Builds / caches
-dist/
+# Production
 build/
+dist/
 .next/
 .turbo/
 .cache/
 
+# Environment files
+.env
+.env.*
+
+# Google Cloud Service Account Keys (NEVER commit these!)
+*-*.json
+medbridge-*.json
+medilink-*.json
+*.credentials.json
+
 # Logs
+logs/
+*.log
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 
-# OS / editor
+# OS files
 .DS_Store
-.idea/
+Thumbs.db
+
+# IDE
 .vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Temporary files
+tmp/
+temp/
 
 # Local docs
 docs/
 personas/
-
-
