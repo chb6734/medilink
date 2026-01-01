@@ -309,6 +309,15 @@ export class RecordsController {
     });
   }
 
+  // Get medication checks for a prescription record
+  @Get('/api/records/:id/medication-checks')
+  async getMedicationChecks(@Param('id') recordId: string) {
+    this.recordsService.ensureDbConfigured();
+
+    const checks = await this.recordsService.getMedicationChecks(recordId);
+    return { checks };
+  }
+
   /**
    * 처방 기록의 약물 복용 스케줄 조회
    *

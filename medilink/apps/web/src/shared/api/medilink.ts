@@ -368,3 +368,32 @@ export async function getAdherence(recordId: string): Promise<AdherenceResponse>
     method: "GET",
   });
 }
+
+// ============= 복약 체크 API =============
+
+export type MedicationCheck = {
+  id: string;
+  scheduledAt: string;
+  isTaken: boolean;
+  takenAt: string | null;
+};
+
+export async function getMedicationChecks(recordId: string): Promise<{ checks: MedicationCheck[] }> {
+  return await fetchJson<{ checks: MedicationCheck[] }>(`/api/records/${recordId}/medication-checks`, {
+    method: "GET",
+  });
+}
+
+export async function updateMedicationCheck(
+  checkId: string,
+  isTaken: boolean
+): Promise<{ id: string; isTaken: boolean; takenAt: string | null }> {
+  return await fetchJson<{ id: string; isTaken: boolean; takenAt: string | null }>(
+    `/api/medication-checks/${checkId}`,
+    {
+      method: "PUT",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ isTaken }),
+    }
+  );
+}

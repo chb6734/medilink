@@ -17,6 +17,7 @@ import { getRecords } from "@/shared/api";
 import type { PrescriptionRecord } from "@/entities/record/model/types";
 import { getOrCreatePatientId } from "@/entities/patient/lib/patientId";
 import { AdherenceChart } from "@/features/adherence";
+import { MedicationCheckList } from "@/features/medication-check";
 
 interface MedicationHistoryProps {
   onBack: () => void;
@@ -397,12 +398,10 @@ export function MedicationHistory({ onBack }: MedicationHistoryProps) {
                       </div>
                     </div>
 
-                    {/* 복약 체크 섹션은 별도 컴포넌트로 분리 예정 */}
+                    {/* 복약 체크 */}
                     <div>
                       <h3 style={{ fontSize: "1rem", fontWeight: "700", marginBottom: "12px" }}>복약 체크</h3>
-                      <p style={{ fontSize: "0.875rem", color: "#6B7280", textAlign: "center", padding: "24px" }}>
-                        복약 체크 기능은 곧 추가됩니다
-                      </p>
+                      <MedicationCheckList recordId={record.id} onCheckUpdate={loadRecords} />
                     </div>
                   </div>
                 )}
