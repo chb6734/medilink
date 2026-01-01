@@ -334,7 +334,7 @@ export class RecordsController {
       daysSupply: meta.data.daysSupply,
       medications: finalMeds,
       ocrRawText: text,
-      geminiSummary,
+      geminiSummary: geminiSummary ?? undefined,
     });
   }
 }

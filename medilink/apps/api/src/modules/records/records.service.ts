@@ -314,7 +314,7 @@ export class RecordsService {
           needsVerification: false,
         })),
         rawText: data.ocrRawText,
-        geminiSummary: data.geminiSummary,
+        geminiSummary: data.geminiSummary ?? null,
       });
       return { recordId, createdAt: new Date() };
     }
@@ -429,10 +429,9 @@ export class RecordsService {
     // Vision API에서 bounding box 정보 가져오기 (Gemini OCR과 병렬로 실행)
     // Gemini OCR을 사용하더라도 bounding box 정보를 위해 Vision API 호출 시도
     let textAnnotations: TextAnnotation[] | undefined = undefined;
-    this.logger.log(`\n🔍 Vision API 설정 확인:`, {
-      visionEnabled,
-      geminiEnabled,
-    });
+    this.logger.log(
+      `\n🔍 Vision API 설정 확인: ${JSON.stringify({ visionEnabled, geminiEnabled })}`,
+    );
 
     // Gemini OCR을 사용할 때도 bounding box를 위해 Vision API 호출 시도
     const shouldCallVision = visionEnabled || geminiEnabled;
@@ -493,17 +492,15 @@ export class RecordsService {
         const sampleAnnotations: TextAnnotation[] = Array.isArray(visionResult)
           ? visionResult.slice(0, 5)
           : [];
-        this.logger.log(
-          `   샘플 (처음 5개):`,
-          sampleAnnotations.map((a: TextAnnotation) => {
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
-            const text = a.text.substring(0, 20);
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
-            const bbox = a.boundingBox;
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-            return { text, bbox };
-          }),
-        );
+        const samples = sampleAnnotations.map((a: TextAnnotation) => {
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
+          const text = a.text.substring(0, 20);
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
+          const bbox = a.boundingBox;
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+          return { text, bbox };
+        });
+        this.logger.log(`   샘플 (처음 5개): ${JSON.stringify(samples)}`);
       } else {
         textAnnotations = undefined;
         this.logger.warn(
@@ -550,12 +547,14 @@ export class RecordsService {
       textAnnotations, // bounding box 정보 포함
     };
 
-    this.logger.log(`\n📤 응답 데이터:`, {
-      rawTextLength: response.rawText?.length || 0,
-      textAnnotationsCount: response.textAnnotations?.length || 0,
-      medicationsCount: response.medications?.length || 0,
-      hospitalName: response.hospitalName || '없음',
-    });
+    this.logger.log(
+      `\n📤 응답 데이터: ${JSON.stringify({
+        rawTextLength: response.rawText?.length || 0,
+        textAnnotationsCount: response.textAnnotations?.length || 0,
+        medicationsCount: response.medications?.length || 0,
+        hospitalName: response.hospitalName || '없음',
+      })}`,
+    );
 
     return response;
   }
