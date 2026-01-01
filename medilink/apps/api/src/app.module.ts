@@ -9,6 +9,8 @@ import { HealthController } from './controllers/health.controller';
 import { ShareController } from './controllers/share.controller';
 import { PatientsController } from './controllers/patients.controller';
 import { FacilitiesController } from './controllers/facilities.controller';
+import { IntakeFormsController } from './controllers/intake-forms.controller';
+import { IntakeFormsService } from './modules/intake-forms/intake-forms.service';
 import { DailyCheckScheduler } from './schedulers/daily-check.scheduler';
 
 /**
@@ -48,7 +50,8 @@ import { DailyCheckScheduler } from './schedulers/daily-check.scheduler';
     ShareController,
     PatientsController,
     FacilitiesController,
+    IntakeFormsController,
   ],
-  providers: [DailyCheckScheduler],
+  providers: [DailyCheckScheduler, IntakeFormsService],
 })
 export class AppModule {}

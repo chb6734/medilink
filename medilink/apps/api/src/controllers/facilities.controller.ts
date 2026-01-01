@@ -203,6 +203,75 @@ export class FacilitiesController {
   }
 
   /**
+   * 병원 이름으로 찾거나 생성
+   *
+   * @route POST /api/facilities/find-or-create
+   * @body { name: string, type?: 'clinic' | 'hospital' | 'pharmacy' | 'unknown' }
+   *
+   * @description
+   * 병원 이름으로 검색하여 존재하면 반환하고, 없으면 새로 생성합니다.
+   * 문진표 작성 시 사용자가 입력한 병원을 DB에 저장하는 용도로 사용됩니다.
+   *
+   * @example
+   * POST /api/facilities/find-or-create
+   * Body:
+   * {
+   *   "name": "삼성서울병원",
+   *   "type": "hospital"
+   * }
+   * Response:
+   * {
+   *   "id": "uuid",
+   *   "name": "삼성서울병원",
+   *   "type": "hospital",
+   *   "typeLabel": "병원",
+   *   "specialty": null,
+   *   "address": null,
+   *   "phone": null
+   * }
+   */
+  @Post('find-or-create')
+  async findOrCreateFacility(@Body() body: { name: string; type?: string }) {
+    if (!body.name || !body.name.trim()) {
+      throw new HttpException(
+        'Facility name is required',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    // 이름으로 검색
+    const existing = await this.db.facility.findFirst({
+      where: {
+        name: {
+          equals: body.name.trim(),
+          mode: 'insensitive', // 대소문자 구분 없이
+        },
+      },
+    });
+
+    if (existing) {
+      return {
+        ...existing,
+        typeLabel: this.getFacilityTypeLabel(existing.type),
+      };
+    }
+
+    // 없으면 생성
+    const facilityType = (body.type as FacilityType) || FacilityType.unknown;
+    const newFacility = await this.db.facility.create({
+      data: {
+        name: body.name.trim(),
+        type: facilityType,
+      },
+    });
+
+    return {
+      ...newFacility,
+      typeLabel: this.getFacilityTypeLabel(newFacility.type),
+    };
+  }
+
+  /**
    * AI 기반 증상 분석 및 진료 과목 추천
    *
    * @route POST /api/facilities/recommend-specialty
