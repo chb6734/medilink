@@ -33,6 +33,7 @@ import {
   isGeminiOcrEnabled,
 } from '../lib/genaiOcr';
 import { RecordsService } from '../modules/records/records.service';
+import { verifyToken } from '../lib/jwt';
 
 function requireAuth(req: Request) {
   if (!isAuthEnabled()) {
@@ -40,20 +41,25 @@ function requireAuth(req: Request) {
     return;
   }
 
+  const token = req.cookies?.['auth_token'];
+
   console.log('🔍 인증 확인:', {
-    hasSession: !!req.session,
-    hasUser: !!req.session?.user,
-    userId: req.session?.user?.id,
-    sessionId: req.sessionID,
+    hasToken: !!token,
     cookies: req.headers.cookie,
   });
 
-  if (!req.session?.user) {
-    console.error('❌ 인증 실패: 세션에 사용자 정보 없음');
+  if (!token) {
+    console.error('❌ 인증 실패: JWT 토큰 없음');
     throw new UnauthorizedException('unauthorized');
   }
 
-  console.log('✅ 인증 성공:', req.session.user.id);
+  const payload = verifyToken(token);
+  if (!payload) {
+    console.error('❌ 인증 실패: JWT 토큰 검증 실패');
+    throw new UnauthorizedException('unauthorized');
+  }
+
+  console.log('✅ 인증 성공:', payload.userId);
 }
 
 function ensureDbConfigured() {

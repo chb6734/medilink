@@ -21,8 +21,15 @@ import {
   randomOtpCode,
   sha256,
 } from '../lib/auth';
+import { generateToken, verifyToken } from '../lib/jwt';
 
 const log = new Logger('Auth');
+
+// OAuth state 임시 저장 (메모리)
+const oauthStateStore = new Map<
+  string,
+  { returnTo?: string; createdAt: number }
+>();
 
 // Phone OTP (DEV skeleton)
 const otpStore = new Map<
@@ -34,16 +41,30 @@ const otpStore = new Map<
 export class AuthController {
   @Get('/api/auth/me')
   me(@Req() req: Request) {
+    const token = req.cookies?.['auth_token'];
+    let user = null;
+
+    if (token) {
+      const payload = verifyToken(token);
+      if (payload) {
+        user = {
+          id: payload.userId,
+          provider: payload.provider,
+          subject: payload.subject,
+          displayName: payload.displayName,
+        };
+      }
+    }
+
     console.log('🔍 /api/auth/me 호출:', {
-      hasSession: !!req.session,
-      sessionId: req.sessionID,
-      hasUser: !!req.session?.user,
-      userId: req.session?.user?.id,
-      cookies: req.headers.cookie,
+      hasToken: !!token,
+      hasUser: !!user,
+      userId: user?.id,
     });
+
     return {
       authEnabled: isAuthEnabled(),
-      user: req.session?.user ?? null,
+      user,
     };
   }
 
@@ -87,20 +108,20 @@ export class AuthController {
   ) {
     if (!isAuthEnabled()) throw new NotFoundException('auth_disabled');
 
-    // Create session + state
+    // Create state + 메모리에 저장
     const state = crypto.randomUUID();
-    req.session.googleOAuth = {
-      state,
+    oauthStateStore.set(state, {
       returnTo: typeof returnTo === 'string' ? returnTo : undefined,
       createdAt: Date.now(),
-    };
+    });
+
+    // 10분 후 자동 삭제
+    setTimeout(() => oauthStateStore.delete(state), 10 * 60 * 1000);
 
     let client;
     try {
       client = getGoogleOAuthClient();
     } catch (e) {
-      // window.location.href 로 호출되는 엔드포인트라 400을 던지면 UX가 "무반응"처럼 보일 수 있음.
-      // 따라서 login 화면으로 되돌리고, 쿼리로 에러를 전달합니다.
       const base =
         (typeof returnTo === 'string' && returnTo.length > 0 && returnTo) ||
         process.env.WEB_ORIGIN ||
@@ -112,7 +133,6 @@ export class AuthController {
         u.searchParams.set('message', String((e as Error)?.message ?? e));
         return res.redirect(u.toString());
       } catch {
-        // fallback: keep old behavior
         throw new BadRequestException(
           `google_oauth_not_configured: ${String((e as Error)?.message ?? e)}`,
         );
@@ -127,21 +147,9 @@ export class AuthController {
       prompt: 'select_account',
     });
 
-    // 세션 저장 후 리다이렉트 (세션 쿠키가 Set-Cookie로 전송되도록 보장)
-    console.log('🔐 OAuth state 저장:', {
-      sessionId: req.sessionID,
-      state,
-      returnTo,
-    });
-    req.session.save((err) => {
-      if (err) {
-        log.error('❌ 세션 저장 실패:', err);
-      } else {
-        console.log('✅ 세션 저장 완료, 리다이렉트 시작');
-      }
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
-      res.redirect(url);
-    });
+    console.log('🔐 OAuth state 저장:', { state, returnTo });
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
+    res.redirect(url);
   }
 
   @Get('/api/auth/google/callback')
@@ -168,10 +176,13 @@ export class AuthController {
       return res.status(401).send(`google_oauth_error: ${msg}`);
     }
 
-    const saved = req.session.googleOAuth;
-    if (!saved?.state || !state || saved.state !== state) {
+    const saved = oauthStateStore.get(state || '');
+    if (!saved || !state) {
       return res.status(401).send('google_oauth_state_mismatch');
     }
+
+    // state 사용 후 삭제
+    oauthStateStore.delete(state);
 
     let client;
     try {
@@ -197,43 +208,53 @@ export class AuthController {
         idToken: tokens.id_token,
         audience: process.env.GOOGLE_OAUTH_CLIENT_ID,
       });
-      const payload = ticket.getPayload();
-      if (!payload?.sub) return res.status(401).send('invalid_token');
+      const googlePayload = ticket.getPayload();
+      if (!googlePayload?.sub) return res.status(401).send('invalid_token');
 
-      req.session.user = {
-        id: crypto.randomUUID(),
-        provider: 'google',
-        subject: payload.sub,
-        displayName: payload.name ?? payload.email ?? undefined,
+      // JWT 생성
+      const jwtPayload = {
+        userId: crypto.randomUUID(),
+        provider: 'google' as const,
+        subject: googlePayload.sub,
+        displayName: googlePayload.name ?? googlePayload.email ?? undefined,
       };
-      req.session.googleOAuth = undefined;
+      const token = generateToken(jwtPayload);
 
-      // 세션 저장 후 리다이렉트 (세션이 저장되기 전에 리다이렉트되면 쿠키가 전송되지 않음)
-      req.session.save((err) => {
-        if (err) {
-          console.error('세션 저장 오류:', err);
-          return res.status(500).send('session_save_error');
-        }
+      // HttpOnly 쿠키로 JWT 전송
+      const isProduction = process.env.NODE_ENV === 'production';
+      const cookieDomain = process.env.COOKIE_DOMAIN;
 
-        const fallback = `${req.protocol}://${req.hostname}:3000/`;
-        const candidate = saved.returnTo;
-        let dest = fallback;
-        if (candidate) {
-          try {
-            const u = new URL(candidate);
-            const allowOrigin = process.env.WEB_ORIGIN;
-            if (allowOrigin && candidate.startsWith(allowOrigin)) {
-              dest = candidate;
-            } else if (u.hostname === req.hostname && u.port === '3000') {
-              dest = candidate;
-            }
-          } catch {
-            // ignore
-          }
-        }
-
-        return res.redirect(dest);
+      res.cookie('auth_token', token, {
+        httpOnly: true,
+        secure: isProduction,
+        sameSite: isProduction ? 'none' : 'lax',
+        domain: cookieDomain || undefined,
+        path: '/',
+        maxAge: 7 * 24 * 60 * 60 * 1000, // 7일
       });
+
+      console.log('✅ JWT 발급 완료:', {
+        userId: jwtPayload.userId,
+        domain: cookieDomain,
+      });
+
+      // 리다이렉트
+      const fallback = process.env.FRONTEND_URL || 'http://localhost:3000/';
+      const candidate = saved.returnTo;
+      let dest = fallback;
+      if (candidate) {
+        try {
+          const u = new URL(candidate);
+          const allowOrigin = process.env.FRONTEND_URL;
+          if (allowOrigin && candidate.startsWith(allowOrigin)) {
+            dest = candidate;
+          }
+        } catch {
+          // ignore
+        }
+      }
+
+      return res.redirect(dest);
     } catch (e) {
       return res
         .status(401)
@@ -336,8 +357,20 @@ export class AuthController {
   }
 
   @Post('/api/auth/logout')
-  logout(@Req() req: Request) {
-    if (req.session) req.session.user = undefined;
-    return { ok: true };
+  logout(@Req() req: Request, @Res() res: Response) {
+    // JWT 쿠키 삭제
+    const isProduction = process.env.NODE_ENV === 'production';
+    const cookieDomain = process.env.COOKIE_DOMAIN;
+
+    res.cookie('auth_token', '', {
+      httpOnly: true,
+      secure: isProduction,
+      sameSite: isProduction ? 'none' : 'lax',
+      domain: cookieDomain || undefined,
+      path: '/',
+      maxAge: 0, // 즉시 만료
+    });
+
+    return res.json({ ok: true });
   }
 }
