@@ -19,6 +19,10 @@ import {
   isGeminiOcrEnabled,
 } from '../../lib/genaiOcr';
 import { parseMedCandidates } from '../../lib/meds';
+import {
+  parseFrequency,
+  getDefaultTimesForFrequency,
+} from '../../lib/medicationScheduler';
 import crypto from 'node:crypto';
 
 /**
@@ -377,6 +381,60 @@ export class RecordsService {
         },
         select: { id: true, createdAt: true },
       });
+
+      // 4. 복약 체크 레코드 자동 생성 (조제일과 일수가 있는 경우)
+      if (data.dispensedAt && data.daysSupply && data.daysSupply > 0) {
+        // 모든 약물의 빈도를 파싱하여 최대 빈도 찾기
+        const frequencies = data.medications
+          .map((m) => parseFrequency(m.frequency || null))
+          .filter((f): f is number => f !== null);
+
+        const maxFrequency = frequencies.length > 0 ? Math.max(...frequencies) : 1;
+
+        // 최대 빈도에 맞는 복용 시간대 가져오기
+        const times = getDefaultTimesForFrequency(maxFrequency);
+
+        this.logger.log(
+          `Creating medication checks: ${data.daysSupply} days × ${maxFrequency} times = ${data.daysSupply * maxFrequency} checks`,
+        );
+
+        // 조제일부터 일수만큼 MedicationCheck 레코드 생성
+        const medicationChecks: Array<{
+          prescriptionRecordId: string;
+          scheduledAt: Date;
+          dayNumber: number;
+          doseNumber: number;
+        }> = [];
+
+        const dispensedDate = new Date(data.dispensedAt);
+
+        for (let day = 0; day < data.daysSupply; day++) {
+          for (let dose = 0; dose < maxFrequency; dose++) {
+            const scheduledDate = new Date(dispensedDate);
+            scheduledDate.setDate(scheduledDate.getDate() + day);
+
+            // 복용 시간 설정 (예: "09:00" → 9시 0분)
+            const [hours, minutes] = times[dose].split(':').map(Number);
+            scheduledDate.setHours(hours, minutes, 0, 0);
+
+            medicationChecks.push({
+              prescriptionRecordId: record.id,
+              scheduledAt: scheduledDate,
+              dayNumber: day + 1, // 1일차, 2일차, ...
+              doseNumber: dose + 1, // 1회차, 2회차, ...
+            });
+          }
+        }
+
+        // MedicationCheck 레코드 bulk 생성
+        await tx.medicationCheck.createMany({
+          data: medicationChecks,
+        });
+
+        this.logger.log(
+          `Created ${medicationChecks.length} medication check records`,
+        );
+      }
 
       this.logger.log(`Record created successfully: ${record.id}`);
 
@@ -828,29 +886,144 @@ export class RecordsService {
    * @param data - 업데이트 데이터 (dailyLog, alarmTimes, medications)
    * @returns 업데이트 결과
    */
-  async updateRecord(
+  /**
+   * 처방 정보 수정
+   *
+   * @param recordId - 처방 기록 ID
+   * @param data - 수정할 정보
+   * @returns 업데이트 결과
+   */
+  async updatePrescriptionRecord(
     recordId: string,
     data: {
-      dailyLog?: Record<string, boolean>;
-      alarmTimes?: string[];
-      medications?: Array<{
-        id: string;
-        name: string;
-        dosage: string;
-        frequency: string;
-      }>;
+      facilityName?: string;
+      chiefComplaint?: string;
+      doctorDiagnosis?: string;
+      noteDoctorSaid?: string;
+      prescribedAt?: string;
+      dispensedAt?: string;
+      daysSupply?: number;
     },
   ): Promise<{ id: string; updated: boolean }> {
-    this.logger.log(`Updating record ${recordId}`);
+    this.logger.log(`Updating prescription record ${recordId}`);
 
     if (useInMemoryStore) {
-      // Memory store doesn't support updates for now
       return { id: recordId, updated: true };
     }
 
-    // TODO: Implement actual update logic when we have a dailyLog table
-    // For now, just return success as a placeholder
+    await this.prisma.prescriptionRecord.update({
+      where: { id: recordId },
+      data: {
+        chiefComplaint: data.chiefComplaint,
+        doctorDiagnosis: data.doctorDiagnosis,
+        noteDoctorSaid: data.noteDoctorSaid,
+        prescribedAt: data.prescribedAt
+          ? new Date(data.prescribedAt)
+          : undefined,
+        dispensedAt: data.dispensedAt
+          ? new Date(data.dispensedAt)
+          : undefined,
+        daysSupply: data.daysSupply,
+      },
+    });
+
     return { id: recordId, updated: true };
+  }
+
+  /**
+   * 처방 기록 삭제
+   *
+   * @param recordId - 처방 기록 ID
+   * @returns 삭제 결과
+   */
+  async deleteRecord(recordId: string): Promise<{ id: string; deleted: boolean }> {
+    this.logger.log(`Deleting record ${recordId}`);
+
+    if (useInMemoryStore) {
+      return { id: recordId, deleted: true };
+    }
+
+    await this.prisma.prescriptionRecord.delete({
+      where: { id: recordId },
+    });
+
+    return { id: recordId, deleted: true };
+  }
+
+  /**
+   * 복약 체크 업데이트
+   *
+   * @param checkId - 복약 체크 ID
+   * @param isTaken - 복용 여부
+   * @returns 업데이트된 복약 체크 정보
+   */
+  async updateMedicationCheck(
+    checkId: string,
+    isTaken: boolean,
+  ): Promise<{
+    id: string;
+    isTaken: boolean;
+    takenAt: Date | null;
+  }> {
+    this.logger.log(`Updating medication check ${checkId}: isTaken=${isTaken}`);
+
+    if (useInMemoryStore) {
+      return {
+        id: checkId,
+        isTaken,
+        takenAt: isTaken ? new Date() : null,
+      };
+    }
+
+    const updated = await this.prisma.medicationCheck.update({
+      where: { id: checkId },
+      data: {
+        isTaken,
+        takenAt: isTaken ? new Date() : null,
+      },
+      select: {
+        id: true,
+        isTaken: true,
+        takenAt: true,
+      },
+    });
+
+    return updated;
+  }
+
+  /**
+   * 약물 개별 정보 수정
+   *
+   * @param medItemId - 약물 ID
+   * @param data - 수정할 약물 정보
+   * @returns 업데이트 결과
+   */
+  async updateMedItem(
+    medItemId: string,
+    data: {
+      nameRaw?: string;
+      dose?: string;
+      frequency?: string;
+      durationDays?: number;
+    },
+  ): Promise<{ id: string; updated: boolean }> {
+    this.logger.log(`Updating medication item ${medItemId}`);
+
+    if (useInMemoryStore) {
+      return { id: medItemId, updated: true };
+    }
+
+    await this.prisma.medItem.update({
+      where: { id: medItemId },
+      data: {
+        nameRaw: data.nameRaw,
+        dose: data.dose,
+        frequency: data.frequency,
+        durationDays: data.durationDays,
+      },
+    });
+
+    return { id: medItemId, updated: true };
   }
 
   /**

@@ -4,6 +4,7 @@ import {
   Get,
   Post,
   Put,
+  Delete,
   Param,
   Body,
   Query,
@@ -42,6 +43,7 @@ import {
   CountRecordsQueryDto,
   GetRecordsQueryDto,
   UpdateRecordBodyDto,
+  UpdatePrescriptionRecordDto,
   GetCurrentMedicationsQueryDto,
   GetDoctorSummaryQueryDto,
   CreateRecordQueryDto,
@@ -107,17 +109,58 @@ export class RecordsController {
     return { records };
   }
 
-  // Update record (for medication compliance tracking)
+  // Update prescription record info
   @Put('/api/records/:id')
   async updateRecord(
     @Req() req: Request,
     @Param('id') id: string,
-    @Body() body: UpdateRecordBodyDto,
+    @Body() body: UpdatePrescriptionRecordDto,
   ) {
     this.recordsService.ensureDbConfigured();
     requireAuth(req);
 
-    return this.recordsService.updateRecord(id, body);
+    return this.recordsService.updatePrescriptionRecord(id, body);
+  }
+
+  // Delete prescription record
+  @Delete('/api/records/:id')
+  async deleteRecord(@Req() req: Request, @Param('id') id: string) {
+    this.recordsService.ensureDbConfigured();
+    requireAuth(req);
+
+    return this.recordsService.deleteRecord(id);
+  }
+
+  // Update medication check (mark as taken)
+  @Put('/api/medication-checks/:id')
+  async updateMedicationCheck(
+    @Req() req: Request,
+    @Param('id') id: string,
+    @Body() body: { isTaken: boolean },
+  ) {
+    this.recordsService.ensureDbConfigured();
+    requireAuth(req);
+
+    return this.recordsService.updateMedicationCheck(id, body.isTaken);
+  }
+
+  // Update individual medication item
+  @Put('/api/med-items/:id')
+  async updateMedItem(
+    @Req() req: Request,
+    @Param('id') id: string,
+    @Body()
+    body: {
+      nameRaw?: string;
+      dose?: string;
+      frequency?: string;
+      durationDays?: number;
+    },
+  ) {
+    this.recordsService.ensureDbConfigured();
+    requireAuth(req);
+
+    return this.recordsService.updateMedItem(id, body);
   }
 
   // OCR Preview (no DB write)

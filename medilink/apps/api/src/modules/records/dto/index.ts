@@ -8,6 +8,7 @@
 export * from './count-records-query.dto';
 export * from './get-records-query.dto';
 export * from './update-record-body.dto';
+export * from './update-prescription-record.dto';
 export * from './get-current-medications-query.dto';
 export * from './get-doctor-summary-query.dto';
 export * from './create-record-query.dto';
