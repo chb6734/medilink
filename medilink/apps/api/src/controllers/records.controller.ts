@@ -25,6 +25,7 @@ import { summarizeForClinician, analyzePatientStatus } from '../lib/gemini';
 import { parseMedCandidates } from '../lib/meds';
 import { isAuthEnabled } from '../lib/auth';
 import { memAddRecord, memGetRecords } from '../lib/memory';
+import { generateMedicationSchedule } from '../lib/medicationScheduler';
 import {
   extractMedicationsFromImage,
   isGeminiOcrEnabled,
@@ -237,5 +238,67 @@ export class RecordsController {
       ocrRawText: text,
       geminiSummary: geminiSummary ?? undefined,
     });
+  }
+
+  /**
+   * 처방 기록의 약물 복용 스케줄 조회
+   *
+   * @route GET /api/records/:id/medication-schedule
+   * @param id - 처방 기록 ID
+   * @returns 시간대별 복용 약물 스케줄
+   *
+   * @description
+   * 약물의 복용 빈도를 분석하여 시간대별로 어떤 약을 복용해야 하는지 반환합니다.
+   *
+   * @example
+   * GET /api/records/uuid/medication-schedule
+   * Response:
+   * {
+   *   "schedules": [
+   *     {
+   *       "time": "09:00",
+   *       "medications": [
+   *         { "medItemId": "uuid1", "medName": "펠루비정", "dose": "1정" },
+   *         { "medItemId": "uuid2", "medName": "브로피딘정", "dose": "1정" },
+   *         { "medItemId": "uuid3", "medName": "테세놀", "dose": "1정" }
+   *       ]
+   *     },
+   *     {
+   *       "time": "12:00",
+   *       "medications": [
+   *         { "medItemId": "uuid1", "medName": "펠루비정", "dose": "1정" },
+   *         { "medItemId": "uuid3", "medName": "테세놀", "dose": "1정" }
+   *       ]
+   *     },
+   *     {
+   *       "time": "18:00",
+   *       "medications": [
+   *         { "medItemId": "uuid1", "medName": "펠루비정", "dose": "1정" },
+   *         { "medItemId": "uuid2", "medName": "브로피딘정", "dose": "1정" },
+   *         { "medItemId": "uuid3", "medName": "테세놀", "dose": "1정" }
+   *       ]
+   *     }
+   *   ]
+   * }
+   */
+  @Get(':id/medication-schedule')
+  async getMedicationSchedule(@Param('id') recordId: string) {
+    // In-memory 모드일 경우 (현재는 DB 모드만 지원)
+    if (useInMemoryStore) {
+      throw new ServiceUnavailableException(
+        'Medication schedule is not available in in-memory mode',
+      );
+    }
+
+    // DB 모드
+    const record = await this.recordsService.getRecordWithMedications(recordId);
+
+    if (!record) {
+      throw new BadRequestException('Record not found');
+    }
+
+    const schedules = generateMedicationSchedule(record.medItems);
+
+    return { schedules };
   }
 }

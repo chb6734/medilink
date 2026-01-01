@@ -854,6 +854,29 @@ export class RecordsService {
   }
 
   /**
+   * 처방 기록 조회 (약물 정보 포함)
+   *
+   * @param recordId - 기록 ID
+   * @returns 처방 기록 및 약물 정보
+   */
+  async getRecordWithMedications(recordId: string) {
+    return this.prisma.prescriptionRecord.findUnique({
+      where: { id: recordId },
+      include: {
+        medItems: {
+          select: {
+            id: true,
+            nameRaw: true,
+            dose: true,
+            frequency: true,
+            durationDays: true,
+          },
+        },
+      },
+    });
+  }
+
+  /**
    * 환경 변수 체크: DATABASE_URL이 설정되어 있는지 확인
    */
   ensureDbConfigured() {
