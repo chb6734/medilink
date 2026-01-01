@@ -40,6 +40,11 @@ enum ReminderEventStatus {
   skipped
 }
 
+enum VisitType {
+  new_symptom
+  followup
+}
+
 model Patient {
   id          String   @id @default(uuid())
   createdAt   DateTime @default(now())
@@ -47,6 +52,14 @@ model Patient {
   // Phase 1 auth binding
   authProvider String?
   authSubject  String?
+
+  // 환자 기본 정보
+  birthDate         DateTime? // 생년월일 (주민번호 대신)
+  bloodType         String?   // 혈액형 (A+, B-, O+, AB- 등)
+  heightCm          Float?    // 키 (cm)
+  weightKg          Float?    // 몸무게 (kg)
+  allergies         String?   // 알레르기 정보 (콤마 구분 또는 JSON)
+  emergencyContact  String?   // 비상연락처
 
   records         PrescriptionRecord[]
   intakes         IntakeForm[]
@@ -59,6 +72,9 @@ model Facility {
   id        String       @id @default(uuid())
   name      String
   type      FacilityType @default(unknown)
+  specialty String?      // 진료 과목 (이비인후과, 안과, 정형외과, 내과 등)
+  address   String?      // 주소
+  phone     String?      // 전화번호
   createdAt DateTime     @default(now())
 
   records   PrescriptionRecord[]
@@ -66,6 +82,7 @@ model Facility {
   shareTokens ShareToken[]
 
   @@index([name])
+  @@index([specialty])
 }
 
 model PrescriptionRecord {
@@ -133,6 +150,9 @@ model IntakeForm {
   facilityId  String?
   facility    Facility? @relation(fields: [facilityId], references: [id], onDelete: SetNull)
 
+  visitType   VisitType @default(new_symptom) // 새로운 증상 or 이전 처방 관련
+  relatedRecordId String? // 이전 처방 관련인 경우 연결된 PrescriptionRecord ID
+
   chiefComplaint String
   onsetAt        DateTime?
   onsetText      String?
@@ -148,6 +168,7 @@ model IntakeForm {
   createdAt      DateTime @default(now())
 
   @@index([patientId, createdAt])
+  @@index([relatedRecordId])
 }
 
 model ShareToken {

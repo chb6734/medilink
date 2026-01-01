@@ -1,5 +1,6 @@
 import './lib/loadEnv';
 import { NestFactory } from '@nestjs/core';
+import { ValidationPipe } from '@nestjs/common';
 import { AppModule } from './app.module';
 import cookieParser from 'cookie-parser';
 import { logGeminiOcrConfig } from './lib/genaiOcr';
@@ -12,6 +13,18 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule, {
     logger: ['log', 'warn', 'error', 'debug', 'verbose'],
   });
+
+  // Global Validation Pipe 적용
+  app.useGlobalPipes(
+    new ValidationPipe({
+      transform: true, // DTO 클래스로 자동 변환
+      whitelist: true, // DTO에 정의되지 않은 속성 제거
+      forbidNonWhitelisted: false, // 정의되지 않은 속성 허용 (Zod 마이그레이션 중)
+      transformOptions: {
+        enableImplicitConversion: true, // 쿼리 파라미터 자동 타입 변환
+      },
+    }),
+  );
 
   // Global Exception Filter 적용
   const logger = new CustomLoggerService();

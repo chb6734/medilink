@@ -15,9 +15,6 @@ import {
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import type { Request } from 'express';
-import crypto from 'node:crypto';
-import { z } from 'zod';
-import { prisma } from '@medilink/db';
 import { useInMemoryStore, visionEnabled } from '../lib/config';
 import {
   ocrTextFromImageBytes,
@@ -34,6 +31,14 @@ import {
 } from '../lib/genaiOcr';
 import { RecordsService } from '../modules/records/records.service';
 import { verifyToken } from '../lib/jwt';
+import {
+  CountRecordsQueryDto,
+  GetRecordsQueryDto,
+  UpdateRecordBodyDto,
+  GetCurrentMedicationsQueryDto,
+  GetDoctorSummaryQueryDto,
+  CreateRecordQueryDto,
+} from '../modules/records/dto';
 
 function requireAuth(req: Request) {
   if (!isAuthEnabled()) {
@@ -78,50 +83,20 @@ export class RecordsController {
 
   // Record count for patient (default last 90 days)
   @Get('/api/records/count')
-  async count(@Req() req: Request, @Query() query: unknown) {
+  async count(@Req() req: Request, @Query() query: CountRecordsQueryDto) {
     this.recordsService.ensureDbConfigured();
     requireAuth(req);
 
-    const parsed = z
-      .object({
-        patientId: z.string().uuid(),
-        days: z.coerce.number().int().positive().max(3650).optional(),
-      })
-      .safeParse(query);
-
-    if (!parsed.success) {
-      throw new BadRequestException({
-        error: 'invalid_query',
-        details: parsed.error.flatten(),
-      });
-    }
-
-    return this.recordsService.countRecords(
-      parsed.data.patientId,
-      parsed.data.days,
-    );
+    return this.recordsService.countRecords(query.patientId, query.days);
   }
 
   // Get all records for patient
   @Get('/api/records')
-  async getRecords(@Req() req: Request, @Query() query: unknown) {
+  async getRecords(@Req() req: Request, @Query() query: GetRecordsQueryDto) {
     this.recordsService.ensureDbConfigured();
     requireAuth(req);
 
-    const parsed = z
-      .object({
-        patientId: z.string().uuid(),
-      })
-      .safeParse(query);
-
-    if (!parsed.success) {
-      throw new BadRequestException({
-        error: 'invalid_query',
-        details: parsed.error.flatten(),
-      });
-    }
-
-    const records = await this.recordsService.getRecords(parsed.data.patientId);
+    const records = await this.recordsService.getRecords(query.patientId);
     return { records };
   }
 
@@ -130,36 +105,12 @@ export class RecordsController {
   async updateRecord(
     @Req() req: Request,
     @Param('id') id: string,
-    @Body() body: unknown,
+    @Body() body: UpdateRecordBodyDto,
   ) {
     this.recordsService.ensureDbConfigured();
     requireAuth(req);
 
-    const parsed = z
-      .object({
-        dailyLog: z.record(z.string(), z.boolean()).optional(),
-        alarmTimes: z.array(z.string()).optional(),
-        medications: z
-          .array(
-            z.object({
-              id: z.string(),
-              name: z.string(),
-              dosage: z.string(),
-              frequency: z.string(),
-            }),
-          )
-          .optional(),
-      })
-      .safeParse(body);
-
-    if (!parsed.success) {
-      throw new BadRequestException({
-        error: 'invalid_body',
-        details: parsed.error.flatten(),
-      });
-    }
-
-    return this.recordsService.updateRecord(id, parsed.data);
+    return this.recordsService.updateRecord(id, body);
   }
 
   // OCR Preview (no DB write)
@@ -175,28 +126,17 @@ export class RecordsController {
     return this.recordsService.previewOcr(file.buffer, file.mimetype);
   }
 
-  // Create record with OCR + DB write (no image storage)
   // Get current medications (not completed yet)
   @Get('/api/records/current-medications')
-  async getCurrentMedications(@Req() req: Request, @Query() query: unknown) {
+  async getCurrentMedications(
+    @Req() req: Request,
+    @Query() query: GetCurrentMedicationsQueryDto,
+  ) {
     this.recordsService.ensureDbConfigured();
     requireAuth(req);
 
-    const parsed = z
-      .object({
-        patientId: z.string().uuid(),
-      })
-      .safeParse(query);
-
-    if (!parsed.success) {
-      throw new BadRequestException({
-        error: 'invalid_query',
-        details: parsed.error.flatten(),
-      });
-    }
-
     const medications = await this.recordsService.getCurrentMedications(
-      parsed.data.patientId,
+      query.patientId,
     );
 
     return { medications };
@@ -204,24 +144,14 @@ export class RecordsController {
 
   // Get patient summary data for doctor view
   @Get('/api/records/doctor-summary')
-  async getDoctorSummary(@Req() req: Request, @Query() query: unknown) {
+  async getDoctorSummary(
+    @Req() req: Request,
+    @Query() query: GetDoctorSummaryQueryDto,
+  ) {
     this.recordsService.ensureDbConfigured();
     requireAuth(req);
 
-    const parsed = z
-      .object({
-        patientId: z.string().uuid(),
-      })
-      .safeParse(query);
-
-    if (!parsed.success) {
-      throw new BadRequestException({
-        error: 'invalid_query',
-        details: parsed.error.flatten(),
-      });
-    }
-
-    return this.recordsService.getDoctorSummary(parsed.data.patientId);
+    return this.recordsService.getDoctorSummary(query.patientId);
   }
 
   @Post('/api/records')
@@ -232,57 +162,22 @@ export class RecordsController {
   )
   async createRecord(
     @Req() req: Request,
-    @Query() query: unknown,
+    @Query() query: CreateRecordQueryDto,
     @UploadedFile() file?: Express.Multer.File,
   ) {
     this.recordsService.ensureDbConfigured();
     requireAuth(req);
     if (!file?.buffer) throw new BadRequestException('file_required');
 
-    const meta = z
-      .object({
-        patientId: z.string().uuid(),
-        recordType: z.enum(['dispensing_record', 'prescription']),
-        facilityName: z.string().min(1).max(200).optional(),
-        facilityType: z
-          .enum(['clinic', 'hospital', 'pharmacy', 'unknown'])
-          .optional(),
-        chiefComplaint: z.string().max(200).optional(),
-        doctorDiagnosis: z.string().max(200).optional(),
-        noteDoctorSaid: z.string().max(500).optional(),
-        prescribedAt: z.string().datetime().optional(),
-        dispensedAt: z.string().datetime().optional(),
-        // 클라이언트에서 분석된 데이터 추가 수용
-        medications: z
-          .array(
-            z.object({
-              name: z.string(),
-              dosage: z.string().optional(),
-              frequency: z.string().optional(),
-              confidence: z.number().optional(),
-            }),
-          )
-          .optional(),
-        daysSupply: z.coerce.number().optional(),
-      })
-      .safeParse(query);
-
-    if (!meta.success) {
-      throw new BadRequestException({
-        error: 'invalid_meta',
-        details: meta.error.flatten(),
-      });
-    }
-
     const buf = file.buffer;
     let text = '';
 
     // 클라이언트가 약물 정보를 보냈다면 OCR을 다시 하지 않음 (성능 및 정확도 향상)
-    if (meta.data.medications && meta.data.medications.length > 0) {
+    if (query.medications && query.medications.length > 0) {
       console.log(
         '✅ 클라이언트에서 분석된 데이터를 받았습니다. 중복 OCR을 건너뜁니다.',
       );
-      text = `Client-side analyzed record with ${meta.data.medications.length} meds`;
+      text = `Client-side analyzed record with ${query.medications.length} meds`;
     } else if (useInMemoryStore && !visionEnabled) {
       text =
         'OCR 미설정(개발 모드) — 실제 배포에서는 Google Cloud Vision 설정이 필요합니다.';
@@ -307,8 +202,8 @@ export class RecordsController {
 
     // 클라이언트 데이터가 있으면 그것을 우선 사용, 없으면 서버에서 파싱 시도
     const finalMeds =
-      meta.data.medications && meta.data.medications.length > 0
-        ? meta.data.medications.map((m) => ({
+      query.medications && query.medications.length > 0
+        ? query.medications.map((m) => ({
             nameRaw: m.name,
             dose: m.dosage,
             frequency: m.frequency,
@@ -322,22 +217,22 @@ export class RecordsController {
           }));
 
     const geminiSummary =
-      meta.data.medications && meta.data.medications.length > 0
-        ? `Analzed ${meta.data.medications.length} meds: ${meta.data.medications.map((m) => m.name).join(', ')}`
+      query.medications && query.medications.length > 0
+        ? `Analzed ${query.medications.length} meds: ${query.medications.map((m) => m.name).join(', ')}`
         : await summarizeForClinician(text);
 
     // Service로 위임 (트랜잭션 포함)
     return this.recordsService.createRecord({
-      patientId: meta.data.patientId,
-      recordType: meta.data.recordType,
-      facilityName: meta.data.facilityName,
-      facilityType: meta.data.facilityType,
-      chiefComplaint: meta.data.chiefComplaint,
-      doctorDiagnosis: meta.data.doctorDiagnosis,
-      noteDoctorSaid: meta.data.noteDoctorSaid,
-      prescribedAt: meta.data.prescribedAt,
-      dispensedAt: meta.data.dispensedAt,
-      daysSupply: meta.data.daysSupply,
+      patientId: query.patientId,
+      recordType: query.recordType,
+      facilityName: query.facilityName,
+      facilityType: query.facilityType,
+      chiefComplaint: query.chiefComplaint,
+      doctorDiagnosis: query.doctorDiagnosis,
+      noteDoctorSaid: query.noteDoctorSaid,
+      prescribedAt: query.prescribedAt,
+      dispensedAt: query.dispensedAt,
+      daysSupply: query.daysSupply,
       medications: finalMeds,
       ocrRawText: text,
       geminiSummary: geminiSummary ?? undefined,
