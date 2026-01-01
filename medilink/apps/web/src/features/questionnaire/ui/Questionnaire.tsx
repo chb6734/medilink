@@ -1,12 +1,15 @@
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useState, useEffect } from "react";
 import {
   ArrowLeft,
   Building2,
   ChevronDown,
   ChevronRight,
   Search,
+  Sparkles,
 } from "lucide-react";
 import type { QuestionnaireData } from "@/entities/questionnaire/model/types";
+import { searchFacilities, recommendSpecialty, getPatientInfo } from "@/shared/api";
+import type { Facility } from "@/shared/api/medilink";
 
 interface QuestionnaireProps {
   initialData?: Partial<QuestionnaireData>;
@@ -30,6 +33,30 @@ export function Questionnaire({
   const [symptomDetail, setSymptomDetail] = useState(
     formData.symptomDetail ?? ""
   );
+
+  // 환자 정보 (알레르기) 자동 불러오기
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const patientInfo = await getPatientInfo();
+        if (!cancelled && patientInfo.allergies && !formData.allergies) {
+          // 알레르기 정보가 있고, 폼에 아직 입력되지 않았다면 자동 입력
+          setFormData((prev) => ({
+            ...prev,
+            allergies: patientInfo.allergies || "",
+          }));
+        }
+      } catch (error) {
+        // 환자 정보 조회 실패 시 무시 (로그인하지 않았거나 정보 없음)
+        console.log("Could not load patient allergies:", error);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []); // 컴포넌트 마운트 시 1번만 실행
 
   const steps = useMemo(
     () => [

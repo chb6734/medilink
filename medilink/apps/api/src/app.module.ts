@@ -6,6 +6,8 @@ import { RecordsModule } from './modules/records/records.module';
 import { AuthController } from './controllers/auth.controller';
 import { HealthController } from './controllers/health.controller';
 import { ShareController } from './controllers/share.controller';
+import { PatientsController } from './controllers/patients.controller';
+import { FacilitiesController } from './controllers/facilities.controller';
 
 /**
  * AppModule
@@ -40,6 +42,8 @@ import { ShareController } from './controllers/share.controller';
     HealthController,
     AuthController,
     ShareController,
+    PatientsController,
+    FacilitiesController,
   ],
   providers: [],
 })

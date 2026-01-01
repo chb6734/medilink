@@ -261,3 +261,85 @@ export async function updateRecord(params: {
     }
   );
 }
+
+// ============= 환자 정보 API =============
+
+export type PatientInfo = {
+  id: string;
+  birthDate: string | null;
+  age: number | null;
+  bloodType: string | null;
+  heightCm: number | null;
+  weightKg: number | null;
+  allergies: string | null;
+  emergencyContact: string | null;
+  createdAt: string;
+};
+
+export async function getPatientInfo(): Promise<PatientInfo> {
+  return await fetchJson<PatientInfo>("/api/patients/me", {
+    method: "GET",
+  });
+}
+
+export async function updatePatientInfo(params: {
+  birthDate?: string;
+  bloodType?: string;
+  heightCm?: number;
+  weightKg?: number;
+  allergies?: string;
+  emergencyContact?: string;
+}): Promise<PatientInfo> {
+  return await fetchJson<PatientInfo>("/api/patients/me", {
+    method: "PUT",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(params),
+  });
+}
+
+// ============= 병원/의료기관 API =============
+
+export type Facility = {
+  id: string;
+  name: string;
+  type: "clinic" | "hospital" | "pharmacy" | "unknown";
+  typeLabel: string;
+  specialty: string | null;
+  address: string | null;
+  phone: string | null;
+  createdAt: string;
+};
+
+export async function searchFacilities(params: {
+  keyword?: string;
+  specialty?: string;
+  type?: "clinic" | "hospital" | "pharmacy" | "unknown";
+}): Promise<{ facilities: Facility[]; count: number }> {
+  const qs = new URLSearchParams();
+  if (params.keyword) qs.set("keyword", params.keyword);
+  if (params.specialty) qs.set("specialty", params.specialty);
+  if (params.type) qs.set("type", params.type);
+
+  return await fetchJson<{ facilities: Facility[]; count: number }>(
+    `/api/facilities/search?${qs.toString()}`,
+    { method: "GET" }
+  );
+}
+
+export async function recommendSpecialty(params: {
+  symptoms: string;
+}): Promise<{
+  recommendedSpecialties: string[];
+  primarySpecialty: string;
+  reasoning: string;
+}> {
+  return await fetchJson<{
+    recommendedSpecialties: string[];
+    primarySpecialty: string;
+    reasoning: string;
+  }>("/api/facilities/recommend-specialty", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(params),
+  });
+}
