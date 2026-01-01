@@ -42,7 +42,12 @@ export class AuthController {
   @Get('/api/auth/me')
   me(@Req() req: Request) {
     const token = req.cookies?.['auth_token'];
-    let user = null;
+    let user: {
+      id: string;
+      provider: string;
+      subject: string;
+      displayName?: string;
+    } | null = null;
 
     if (token) {
       const payload = verifyToken(token);
