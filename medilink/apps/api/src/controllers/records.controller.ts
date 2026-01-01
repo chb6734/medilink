@@ -121,12 +121,12 @@ export class RecordsController {
 
   // Update record (for medication compliance tracking)
   @Put('/api/records/:id')
-  updateRecord(
+  async updateRecord(
     @Req() req: Request,
     @Param('id') id: string,
     @Body() body: unknown,
   ) {
-    ensureDbConfigured();
+    this.recordsService.ensureDbConfigured();
     requireAuth(req);
 
     const parsed = z
@@ -153,14 +153,7 @@ export class RecordsController {
       });
     }
 
-    if (useInMemoryStore) {
-      // Memory store doesn't support updates for now
-      return Promise.resolve({ id, updated: true });
-    }
-
-    // For now, we'll just return success
-    // TODO: Implement actual update logic when we have a dailyLog table
-    return Promise.resolve({ id, updated: true });
+    return this.recordsService.updateRecord(id, parsed.data);
   }
 
   // OCR Preview (no DB write)
