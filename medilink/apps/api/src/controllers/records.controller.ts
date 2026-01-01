@@ -179,28 +179,25 @@ export class RecordsController {
     const buf = file.buffer;
     let text = '';
 
-    // medications이 string으로 온 경우 파싱 (query parameter JSON string)
-    console.log('🔍 Raw query.medications:', {
-      type: typeof query.medications,
-      value: query.medications,
-      isArray: Array.isArray(query.medications),
+    // DTO Transform이 제대로 작동하지 않으므로 req.query에서 직접 파싱
+    const rawMedications = (req.query as any).medications;
+    console.log('🔍 Raw req.query.medications:', {
+      type: typeof rawMedications,
+      value: rawMedications?.substring?.(0, 100),
     });
 
-    let parsedMedications = query.medications;
-    if (typeof query.medications === 'string') {
+    let parsedMedications: any[] | undefined = undefined;
+    if (rawMedications && typeof rawMedications === 'string') {
       try {
-        parsedMedications = JSON.parse(query.medications);
-        console.log('✅ Parsed medications:', parsedMedications);
+        parsedMedications = JSON.parse(rawMedications);
+        console.log('✅ Parsed medications:', {
+          count: parsedMedications?.length,
+          first: parsedMedications?.[0],
+        });
       } catch (e) {
-        console.error('Failed to parse medications:', e);
-        parsedMedications = undefined;
+        console.error('❌ Failed to parse medications:', e);
       }
     }
-
-    console.log('📋 Final parsedMedications:', {
-      count: parsedMedications?.length,
-      first: parsedMedications?.[0],
-    });
 
     // 클라이언트가 약물 정보를 보냈다면 OCR을 다시 하지 않음 (성능 및 정확도 향상)
     if (parsedMedications && parsedMedications.length > 0) {
