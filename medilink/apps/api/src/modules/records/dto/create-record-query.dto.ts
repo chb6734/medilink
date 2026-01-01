@@ -10,7 +10,7 @@ import {
   ValidateNested,
   IsNumber,
 } from 'class-validator';
-import { Type } from 'class-transformer';
+import { Type, Transform } from 'class-transformer';
 
 /**
  * Medication from Client DTO
@@ -83,6 +83,17 @@ export class CreateRecordQueryDto {
   dispensedAt?: string;
 
   @IsOptional()
+  @Transform(({ value }) => {
+    // 클라이언트가 JSON string으로 보낸 경우 파싱
+    if (typeof value === 'string') {
+      try {
+        return JSON.parse(value);
+      } catch {
+        return value;
+      }
+    }
+    return value;
+  })
   @IsArray()
   @ValidateNested({ each: true })
   @Type(() => ClientMedicationDto)
