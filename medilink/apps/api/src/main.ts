@@ -46,6 +46,7 @@ async function bootstrap() {
       httpOnly: true,
       sameSite: (isProduction ? 'none' : 'lax') as 'none' | 'lax', // 프로덕션에서는 크로스 도메인 허용
       secure: isProduction, // 프로덕션에서는 HTTPS 필수
+      domain: process.env.COOKIE_DOMAIN || undefined, // 서브도메인 간 쿠키 공유
       path: '/',
       maxAge: 7 * 24 * 60 * 60 * 1000,
     },
@@ -55,6 +56,7 @@ async function bootstrap() {
     sameSite: sessionConfig.cookie.sameSite,
     secure: sessionConfig.cookie.secure,
     httpOnly: sessionConfig.cookie.httpOnly,
+    domain: sessionConfig.cookie.domain,
   });
 
   app.use(session(sessionConfig));
