@@ -146,6 +146,116 @@ export class RecordsService {
   }
 
   /**
+   * 현재 복용 중인 약물 조회 (완료되지 않은 약)
+   *
+   * @param patientId - 환자 ID
+   * @returns 현재 복용 중인 약물 목록
+   */
+  async getCurrentMedications(patientId: string) {
+    this.logger.log(`Getting current medications for patient ${patientId}`);
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    if (useInMemoryStore) {
+      const allRecords = memGetRecords(patientId);
+      const currentMeds: Array<{
+        id: string;
+        name: string;
+        dosage: string;
+        frequency: string;
+        startDate: string;
+        endDate: string | null;
+        prescribedBy: string;
+        confidence?: number;
+        recordId: string;
+        recordDate: string;
+      }> = [];
+
+      for (const record of allRecords) {
+        const recordDate = new Date(record.createdAt);
+        for (const med of record.meds || []) {
+          // Calculate end date: startDate + durationDays (default 7 days)
+          const startDate = recordDate;
+          const durationDays = 7; // Memory store doesn't have durationDays, default to 7
+          const endDate = new Date(startDate);
+          endDate.setDate(endDate.getDate() + durationDays);
+
+          // Only include medications that have not ended yet (endDate > today)
+          if (endDate > today) {
+            currentMeds.push({
+              id: `${record.id}-${med.nameRaw}`,
+              name: med.nameRaw,
+              dosage: '', // Memory store doesn't have dose
+              frequency: '', // Memory store doesn't have frequency
+              startDate: startDate.toISOString().slice(0, 10),
+              endDate: endDate.toISOString().slice(0, 10),
+              prescribedBy: '', // Memory store doesn't have facilityName
+              confidence: undefined, // Memory store doesn't have confidence
+              recordId: record.id,
+              recordDate: recordDate.toISOString().slice(0, 10),
+            });
+          }
+        }
+      }
+
+      return currentMeds;
+    }
+
+    const records = await this.prisma.prescriptionRecord.findMany({
+      where: { patientId },
+      include: {
+        medItems: true,
+        facility: true,
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    const currentMeds: Array<{
+      id: string;
+      name: string;
+      dosage: string;
+      frequency: string;
+      startDate: string;
+      endDate: string | null;
+      prescribedBy: string;
+      confidence?: number;
+      recordId: string;
+      recordDate: string;
+    }> = [];
+
+    for (const record of records) {
+      const recordDate =
+        record.prescribedAt || record.dispensedAt || record.createdAt;
+      for (const med of record.medItems) {
+        // Calculate end date: recordDate + durationDays
+        const startDate = new Date(recordDate);
+        const durationDays = med.durationDays || 7; // default 7 days
+        const endDate = new Date(startDate);
+        endDate.setDate(endDate.getDate() + durationDays);
+
+        // Only include medications that have not ended yet (endDate > today)
+        if (endDate > today) {
+          currentMeds.push({
+            id: med.id,
+            name: med.nameRaw,
+            dosage: med.dose || '',
+            frequency: med.frequency || '',
+            startDate: startDate.toISOString().slice(0, 10),
+            endDate: endDate.toISOString().slice(0, 10),
+            prescribedBy: record.facility?.name || '',
+            confidence: med.confidence || undefined,
+            recordId: record.id,
+            recordDate: recordDate.toISOString().slice(0, 10),
+          });
+        }
+      }
+    }
+
+    return currentMeds;
+  }
+
+  /**
    * 환경 변수 체크: DATABASE_URL이 설정되어 있는지 확인
    */
   ensureDbConfigured() {

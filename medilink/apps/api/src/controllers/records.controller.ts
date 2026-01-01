@@ -340,7 +340,7 @@ export class RecordsController {
   // Get current medications (not completed yet)
   @Get('/api/records/current-medications')
   async getCurrentMedications(@Req() req: Request, @Query() query: unknown) {
-    ensureDbConfigured();
+    this.recordsService.ensureDbConfigured();
     requireAuth(req);
 
     const parsed = z
@@ -356,105 +356,11 @@ export class RecordsController {
       });
     }
 
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    const medications = await this.recordsService.getCurrentMedications(
+      parsed.data.patientId,
+    );
 
-    if (useInMemoryStore) {
-      const allRecords = memGetRecords(parsed.data.patientId);
-      const currentMeds: Array<{
-        id: string;
-        name: string;
-        dosage: string;
-        frequency: string;
-        startDate: string;
-        endDate: string | null;
-        prescribedBy: string;
-        confidence?: number;
-        recordId: string;
-        recordDate: string;
-      }> = [];
-
-      for (const record of allRecords) {
-        const recordDate = new Date(record.createdAt);
-        for (const med of record.meds || []) {
-          // Calculate end date: startDate + durationDays (default 7 days)
-          const startDate = recordDate;
-          const durationDays = 7; // Memory store doesn't have durationDays, default to 7
-          const endDate = new Date(startDate);
-          endDate.setDate(endDate.getDate() + durationDays);
-
-          // Only include medications that have not ended yet (endDate > today)
-          if (endDate > today) {
-            currentMeds.push({
-              id: `${record.id}-${med.nameRaw}`,
-              name: med.nameRaw,
-              dosage: '', // Memory store doesn't have dose
-              frequency: '', // Memory store doesn't have frequency
-              startDate: startDate.toISOString().slice(0, 10),
-              endDate: endDate.toISOString().slice(0, 10),
-              prescribedBy: '', // Memory store doesn't have facilityName
-              confidence: undefined, // Memory store doesn't have confidence
-              recordId: record.id,
-              recordDate: recordDate.toISOString().slice(0, 10),
-            });
-          }
-        }
-      }
-
-      return { medications: currentMeds };
-    }
-
-    const records = await prisma.prescriptionRecord.findMany({
-      where: { patientId: parsed.data.patientId },
-      include: {
-        medItems: true,
-        facility: true,
-      },
-      orderBy: { createdAt: 'desc' },
-    });
-
-    const currentMeds: Array<{
-      id: string;
-      name: string;
-      dosage: string;
-      frequency: string;
-      startDate: string;
-      endDate: string | null;
-      prescribedBy: string;
-      confidence?: number;
-      recordId: string;
-      recordDate: string;
-    }> = [];
-
-    for (const record of records) {
-      const recordDate =
-        record.prescribedAt || record.dispensedAt || record.createdAt;
-      for (const med of record.medItems) {
-        // Calculate end date: recordDate + durationDays
-        const startDate = new Date(recordDate);
-        const durationDays = med.durationDays || 7; // default 7 days
-        const endDate = new Date(startDate);
-        endDate.setDate(endDate.getDate() + durationDays);
-
-        // Only include medications that have not ended yet (endDate > today)
-        if (endDate > today) {
-          currentMeds.push({
-            id: med.id,
-            name: med.nameRaw,
-            dosage: med.dose || '',
-            frequency: med.frequency || '',
-            startDate: startDate.toISOString().slice(0, 10),
-            endDate: endDate.toISOString().slice(0, 10),
-            prescribedBy: record.facility?.name || '',
-            confidence: med.confidence || undefined,
-            recordId: record.id,
-            recordDate: recordDate.toISOString().slice(0, 10),
-          });
-        }
-      }
-    }
-
-    return { medications: currentMeds };
+    return { medications };
   }
 
   // Get patient summary data for doctor view
