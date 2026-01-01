@@ -877,6 +877,26 @@ export class RecordsService {
   }
 
   /**
+   * 처방 기록에 대한 복약 체크 기록 조회
+   *
+   * @param recordId - 처방 기록 ID
+   * @returns 복약 체크 기록 배열
+   */
+  async getMedicationChecks(recordId: string) {
+    const checks = await this.prisma.medicationCheck.findMany({
+      where: { prescriptionRecordId: recordId },
+      select: {
+        scheduledAt: true,
+        isTaken: true,
+        takenAt: true,
+      },
+      orderBy: { scheduledAt: 'asc' },
+    });
+
+    return checks;
+  }
+
+  /**
    * 환경 변수 체크: DATABASE_URL이 설정되어 있는지 확인
    */
   ensureDbConfigured() {

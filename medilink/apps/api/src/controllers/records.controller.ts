@@ -27,6 +27,12 @@ import { isAuthEnabled } from '../lib/auth';
 import { memAddRecord, memGetRecords } from '../lib/memory';
 import { generateMedicationSchedule } from '../lib/medicationScheduler';
 import {
+  calculateAdherence,
+  calculateAdherenceByPeriod,
+  getAdherenceGrade,
+  calculateDailyAdherence,
+} from '../lib/adherenceCalculator';
+import {
   extractMedicationsFromImage,
   isGeminiOcrEnabled,
 } from '../lib/genaiOcr';
@@ -300,5 +306,89 @@ export class RecordsController {
     const schedules = generateMedicationSchedule(record.medItems);
 
     return { schedules };
+  }
+
+  /**
+   * 처방 기록의 복약 순응도 조회
+   *
+   * @route GET /api/records/:id/adherence
+   * @param id - 처방 기록 ID
+   * @returns 순응도 메트릭스 (전체, 기간별, 등급, 일별)
+   *
+   * @description
+   * 환자의 복약 체크 기록을 분석하여 복약 순응도를 계산합니다.
+   * - 전체 순응도: 모든 기록에 대한 순응도
+   * - 기간별 순응도: 최근 7일, 14일, 30일 순응도
+   * - 순응도 등급: excellent(90%+), good(70-89%), fair(50-69%), poor(<50%)
+   * - 일별 순응도: 날짜별 상세 순응도 맵
+   *
+   * @example
+   * GET /api/records/uuid/adherence
+   * Response:
+   * {
+   *   "overall": 75.0,
+   *   "last7Days": 80.0,
+   *   "last14Days": 77.5,
+   *   "last30Days": 75.0,
+   *   "grade": {
+   *     "grade": "good",
+   *     "label": "양호",
+   *     "description": "잘 지키고 계십니다.",
+   *     "color": "#3B82F6"
+   *   },
+   *   "dailyAdherence": {
+   *     "2026-01-01": 100.0,
+   *     "2026-01-02": 66.7,
+   *     "2026-01-03": 75.0
+   *   }
+   * }
+   */
+  @Get(':id/adherence')
+  async getAdherence(@Param('id') recordId: string) {
+    if (useInMemoryStore) {
+      throw new ServiceUnavailableException(
+        'Adherence calculation is not available in in-memory mode',
+      );
+    }
+
+    // 처방 기록 및 복약 체크 기록 조회
+    const checks = await this.recordsService.getMedicationChecks(recordId);
+
+    if (!checks || checks.length === 0) {
+      return {
+        overall: null,
+        last7Days: null,
+        last14Days: null,
+        last30Days: null,
+        grade: null,
+        dailyAdherence: {},
+        message: 'No medication check records found',
+      };
+    }
+
+    // 순응도 계산
+    const overall = calculateAdherence(checks);
+    const last7Days = calculateAdherenceByPeriod(checks, 7);
+    const last14Days = calculateAdherenceByPeriod(checks, 14);
+    const last30Days = calculateAdherenceByPeriod(checks, 30);
+
+    // 등급 계산 (전체 순응도 기준)
+    const grade = overall !== null ? getAdherenceGrade(overall) : null;
+
+    // 일별 순응도 계산
+    const dailyAdherenceMap = calculateDailyAdherence(checks);
+    const dailyAdherence: Record<string, number> = {};
+    dailyAdherenceMap.forEach((value, key) => {
+      dailyAdherence[key] = value;
+    });
+
+    return {
+      overall,
+      last7Days,
+      last14Days,
+      last30Days,
+      grade,
+      dailyAdherence,
+    };
   }
 }
