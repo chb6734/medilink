@@ -696,7 +696,7 @@ export class RecordsController {
     @Query() query: unknown,
     @UploadedFile() file?: Express.Multer.File,
   ) {
-    ensureDbConfigured();
+    this.recordsService.ensureDbConfigured();
     requireAuth(req);
     if (!file?.buffer) throw new BadRequestException('file_required');
 
@@ -771,7 +771,7 @@ export class RecordsController {
       meta.data.medications && meta.data.medications.length > 0
         ? meta.data.medications.map((m) => ({
             nameRaw: m.name,
-            dose: m.dosage, // dosage -> dose로 수정
+            dose: m.dosage,
             frequency: m.frequency,
             confidence: m.confidence ?? null,
           }))
@@ -787,79 +787,21 @@ export class RecordsController {
         ? `Analzed ${meta.data.medications.length} meds: ${meta.data.medications.map((m) => m.name).join(', ')}`
         : await summarizeForClinician(text);
 
-    if (useInMemoryStore) {
-      const recordId = crypto.randomUUID();
-      memAddRecord({
-        id: recordId,
-        patientId: meta.data.patientId,
-        recordType: meta.data.recordType,
-        createdAt: new Date(),
-        chiefComplaint: meta.data.chiefComplaint,
-        doctorDiagnosis: meta.data.doctorDiagnosis,
-        noteDoctorSaid: meta.data.noteDoctorSaid,
-        meds: finalMeds.map((m) => ({
-          nameRaw: m.nameRaw,
-          needsVerification: false,
-        })),
-        rawText: text,
-        geminiSummary,
-      });
-      return { recordId, createdAt: new Date() };
-    }
-
-    const patient = await prisma.patient.upsert({
-      where: { id: meta.data.patientId },
-      update: {},
-      create: { id: meta.data.patientId },
+    // Service로 위임 (트랜잭션 포함)
+    return this.recordsService.createRecord({
+      patientId: meta.data.patientId,
+      recordType: meta.data.recordType,
+      facilityName: meta.data.facilityName,
+      facilityType: meta.data.facilityType,
+      chiefComplaint: meta.data.chiefComplaint,
+      doctorDiagnosis: meta.data.doctorDiagnosis,
+      noteDoctorSaid: meta.data.noteDoctorSaid,
+      prescribedAt: meta.data.prescribedAt,
+      dispensedAt: meta.data.dispensedAt,
+      daysSupply: meta.data.daysSupply,
+      medications: finalMeds,
+      ocrRawText: text,
+      geminiSummary,
     });
-
-    let facilityId: string | null = null;
-    if (meta.data.facilityName) {
-      // 병원/약국 정보 생성 또는 찾기
-      const facility = await prisma.facility.create({
-        data: {
-          name: meta.data.facilityName,
-          type: meta.data.facilityType ?? 'unknown',
-        },
-      });
-      facilityId = facility.id;
-    }
-
-    const record = await prisma.prescriptionRecord.create({
-      data: {
-        patientId: patient.id,
-        facilityId,
-        recordType: meta.data.recordType,
-        chiefComplaint: meta.data.chiefComplaint,
-        doctorDiagnosis: meta.data.doctorDiagnosis,
-        noteDoctorSaid: meta.data.noteDoctorSaid,
-        prescribedAt: meta.data.prescribedAt
-          ? new Date(meta.data.prescribedAt)
-          : undefined,
-        dispensedAt: meta.data.dispensedAt
-          ? new Date(meta.data.dispensedAt)
-          : undefined,
-        daysSupply: meta.data.daysSupply,
-        ocrExtraction: {
-          create: {
-            rawText: text,
-            fieldsJson: geminiSummary ? { geminiSummary } : undefined,
-            overallConfidence: undefined,
-          },
-        },
-        medItems: {
-          create: finalMeds.map((m) => ({
-            nameRaw: m.nameRaw,
-            dose: m.dose, // dosage -> dose로 수정
-            frequency: m.frequency,
-            confidence: m.confidence,
-            needsVerification: false,
-          })),
-        },
-      },
-      select: { id: true, createdAt: true },
-    });
-
-    return { recordId: record.id, createdAt: record.createdAt };
   }
 }

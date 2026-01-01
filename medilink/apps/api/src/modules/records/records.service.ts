@@ -4,6 +4,7 @@ import { PrismaService } from '../../database/prisma.service';
 import { CustomLoggerService } from '../../common/logger/logger.service';
 import { useInMemoryStore } from '../../lib/config';
 import { memGetRecords, memAddRecord } from '../../lib/memory';
+import crypto from 'node:crypto';
 
 /**
  * RecordsService
@@ -253,6 +254,122 @@ export class RecordsService {
     }
 
     return currentMeds;
+  }
+
+  /**
+   * 처방 기록 생성 (트랜잭션 포함)
+   *
+   * @param data - 처방 기록 생성 데이터
+   * @returns 생성된 기록 ID 및 생성 시각
+   */
+  async createRecord(data: {
+    patientId: string;
+    recordType: 'dispensing_record' | 'prescription';
+    facilityName?: string;
+    facilityType?: 'clinic' | 'hospital' | 'pharmacy' | 'unknown';
+    chiefComplaint?: string;
+    doctorDiagnosis?: string;
+    noteDoctorSaid?: string;
+    prescribedAt?: string;
+    dispensedAt?: string;
+    daysSupply?: number;
+    medications: Array<{
+      nameRaw: string;
+      dose?: string;
+      frequency?: string;
+      confidence?: number | null;
+    }>;
+    ocrRawText: string;
+    geminiSummary?: string;
+  }): Promise<{ recordId: string; createdAt: Date }> {
+    this.logger.log(`Creating record for patient ${data.patientId}`);
+
+    if (useInMemoryStore) {
+      const recordId = crypto.randomUUID();
+      memAddRecord({
+        id: recordId,
+        patientId: data.patientId,
+        recordType: data.recordType,
+        createdAt: new Date(),
+        chiefComplaint: data.chiefComplaint,
+        doctorDiagnosis: data.doctorDiagnosis,
+        noteDoctorSaid: data.noteDoctorSaid,
+        meds: data.medications.map((m) => ({
+          nameRaw: m.nameRaw,
+          needsVerification: false,
+        })),
+        rawText: data.ocrRawText,
+        geminiSummary: data.geminiSummary,
+      });
+      return { recordId, createdAt: new Date() };
+    }
+
+    // 트랜잭션으로 모든 DB 작업을 원자적으로 처리
+    return this.prisma.$transaction(async (tx) => {
+      // 1. 환자 Upsert
+      const patient = await tx.patient.upsert({
+        where: { id: data.patientId },
+        update: {},
+        create: { id: data.patientId },
+      });
+
+      // 2. 병원/약국 정보 생성 (있는 경우)
+      let facilityId: string | null = null;
+      if (data.facilityName) {
+        const facility = await tx.facility.create({
+          data: {
+            name: data.facilityName,
+            type: data.facilityType ?? 'unknown',
+          },
+        });
+        facilityId = facility.id;
+      }
+
+      // 3. 처방 기록 생성 (+ OCR 추출 정보 + 약물 목록)
+      const record = await tx.prescriptionRecord.create({
+        data: {
+          patientId: patient.id,
+          facilityId,
+          recordType: data.recordType,
+          chiefComplaint: data.chiefComplaint,
+          doctorDiagnosis: data.doctorDiagnosis,
+          noteDoctorSaid: data.noteDoctorSaid,
+          prescribedAt: data.prescribedAt
+            ? new Date(data.prescribedAt)
+            : undefined,
+          dispensedAt: data.dispensedAt
+            ? new Date(data.dispensedAt)
+            : undefined,
+          daysSupply: data.daysSupply,
+          ocrExtraction: {
+            create: {
+              rawText: data.ocrRawText,
+              fieldsJson: data.geminiSummary
+                ? { geminiSummary: data.geminiSummary }
+                : undefined,
+              overallConfidence: undefined,
+            },
+          },
+          medItems: {
+            create: data.medications.map((m) => ({
+              nameRaw: m.nameRaw,
+              dose: m.dose,
+              frequency: m.frequency,
+              confidence: m.confidence,
+              needsVerification: false,
+            })),
+          },
+        },
+        select: { id: true, createdAt: true },
+      });
+
+      this.logger.log(`Record created successfully: ${record.id}`);
+
+      return {
+        recordId: record.id,
+        createdAt: record.createdAt,
+      };
+    });
   }
 
   /**
