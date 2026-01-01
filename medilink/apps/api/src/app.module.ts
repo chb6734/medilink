@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
+import { ScheduleModule } from '@nestjs/schedule';
 import configuration from './config/configuration';
 import { DatabaseModule } from './database/database.module';
 import { RecordsModule } from './modules/records/records.module';
@@ -8,6 +9,7 @@ import { HealthController } from './controllers/health.controller';
 import { ShareController } from './controllers/share.controller';
 import { PatientsController } from './controllers/patients.controller';
 import { FacilitiesController } from './controllers/facilities.controller';
+import { DailyCheckScheduler } from './schedulers/daily-check.scheduler';
 
 /**
  * AppModule
@@ -33,6 +35,8 @@ import { FacilitiesController } from './controllers/facilities.controller';
       load: [configuration],
       cache: true,
     }),
+    // 스케줄 모듈
+    ScheduleModule.forRoot(),
     // 전역 데이터베이스 모듈
     DatabaseModule,
     // Feature Modules
@@ -45,6 +49,6 @@ import { FacilitiesController } from './controllers/facilities.controller';
     PatientsController,
     FacilitiesController,
   ],
-  providers: [],
+  providers: [DailyCheckScheduler],
 })
 export class AppModule {}
