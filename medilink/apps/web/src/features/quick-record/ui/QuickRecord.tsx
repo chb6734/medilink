@@ -438,6 +438,19 @@ export function QuickRecord({ onBack, onRecordSaved }: QuickRecordProps) {
           return;
         }
 
+        // 이미지 검증 실패 처리 - 의료 문서가 아닌 경우
+        if (e.error === "invalid_medical_document" || e.message?.includes("올바른 의료 문서")) {
+          console.error("❌ 이미지 검증 실패:", e.reason || e.message);
+          alert(
+            `${e.message || "처방전, 약봉투, 조제전이 아닌 사진입니다."}\n\n올바른 의료 문서 사진을 선택해주세요.${e.reason ? `\n\n사유: ${e.reason}` : ""}`
+          );
+          // 사진 선택 단계로 되돌아가기
+          setStep("upload");
+          setImagePreview(null);
+          setFile(null);
+          return;
+        }
+
         // fallback to allow UX test 심각한 에러가 아닌 경우에만 mock 사용
         const mockOCR: OCRResult = {
           medications: [

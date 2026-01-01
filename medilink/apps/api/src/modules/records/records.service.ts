@@ -23,6 +23,7 @@ import {
   parseFrequency,
   getDefaultTimesForFrequency,
 } from '../../lib/medicationScheduler';
+import { validateMedicalDocument } from '../../lib/imageValidator';
 import crypto from 'node:crypto';
 
 /**
@@ -454,6 +455,29 @@ export class RecordsService {
    */
   async previewOcr(fileBuffer: Buffer, mimeType?: string) {
     this.logger.log('OCR preview requested');
+
+    // 이미지 검증 - 의료 문서 여부 확인
+    const validation = await validateMedicalDocument(
+      fileBuffer,
+      mimeType || 'image/jpeg',
+    );
+
+    if (!validation.isValid) {
+      this.logger.warn(
+        `❌ 이미지 검증 실패: ${validation.reason} (확신도: ${validation.confidence}%)`,
+      );
+      throw new BadRequestException({
+        error: 'invalid_medical_document',
+        message:
+          '처방전, 약봉투, 조제전이 아닌 사진입니다. 올바른 의료 문서 사진을 선택해주세요.',
+        reason: validation.reason,
+        confidence: validation.confidence,
+      });
+    }
+
+    this.logger.log(
+      `✅ 이미지 검증 성공: ${validation.documentType} (확신도: ${validation.confidence}%)`,
+    );
 
     const buf = fileBuffer;
     let text = '';
