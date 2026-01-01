@@ -76,7 +76,7 @@ export async function createRecord(params: {
   if (params.medications) qs.set("medications", JSON.stringify(params.medications));
   if (params.daysSupply !== undefined) qs.set("daysSupply", String(params.daysSupply));
 
-  return await fetchForm(`/api/records?${qs.toString()}`, form);
+  return await fetchForm<{ id: string }>(`/api/records?${qs.toString()}`, form);
 }
 
 export async function getRecordCount(params: {
