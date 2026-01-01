@@ -180,15 +180,27 @@ export class RecordsController {
     let text = '';
 
     // medications이 string으로 온 경우 파싱 (query parameter JSON string)
+    console.log('🔍 Raw query.medications:', {
+      type: typeof query.medications,
+      value: query.medications,
+      isArray: Array.isArray(query.medications),
+    });
+
     let parsedMedications = query.medications;
     if (typeof query.medications === 'string') {
       try {
         parsedMedications = JSON.parse(query.medications);
+        console.log('✅ Parsed medications:', parsedMedications);
       } catch (e) {
         console.error('Failed to parse medications:', e);
         parsedMedications = undefined;
       }
     }
+
+    console.log('📋 Final parsedMedications:', {
+      count: parsedMedications?.length,
+      first: parsedMedications?.[0],
+    });
 
     // 클라이언트가 약물 정보를 보냈다면 OCR을 다시 하지 않음 (성능 및 정확도 향상)
     if (parsedMedications && parsedMedications.length > 0) {
