@@ -12,7 +12,6 @@ export default function HospitalVisitPage() {
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState<any>(null);
   const [records, setRecords] = useState<PrescriptionRecord[]>([]);
-  const [selectedHospital, setSelectedHospital] = useState<string>("");
   const [visitType, setVisitType] = useState<"new" | "followup" | null>(null);
   const [selectedRecord, setSelectedRecord] = useState<string | null>(null);
 
@@ -54,10 +53,9 @@ export default function HospitalVisitPage() {
   }, [router]);
 
   const handleContinue = () => {
-    if (!selectedHospital || !visitType) return;
+    if (!visitType) return;
 
     const params = new URLSearchParams({
-      hospital: selectedHospital,
       visitType,
     });
 
@@ -67,15 +65,6 @@ export default function HospitalVisitPage() {
 
     router.push(`/questionnaire?${params.toString()}`);
   };
-
-  // Get unique hospitals from records
-  const hospitals = Array.from(
-    new Set(
-      records
-        .map((r) => r.hospitalName)
-        .filter((name): name is string => !!name)
-    )
-  );
 
   if (loading) {
     return (
@@ -121,12 +110,12 @@ export default function HospitalVisitPage() {
           병원 방문
         </h1>
         <p style={{ opacity: 0.9, fontSize: "0.9375rem" }}>
-          방문할 병원과 목적을 선택해주세요
+          방문 목적을 선택해주세요
         </p>
       </div>
 
       <div style={{ padding: "24px" }}>
-        {/* Step 1: Hospital Selection */}
+        {/* Step 1: Visit Type Selection */}
         <div style={{ marginBottom: "32px" }}>
           <h2
             style={{
@@ -136,114 +125,8 @@ export default function HospitalVisitPage() {
               color: "var(--color-text-primary)",
             }}
           >
-            1. 방문할 병원 선택
+            1. 방문 목적 선택
           </h2>
-
-          {hospitals.length > 0 ? (
-            <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
-              {hospitals.map((hospital) => (
-                <button
-                  key={hospital}
-                  onClick={() => setSelectedHospital(hospital)}
-                  style={{
-                    background:
-                      selectedHospital === hospital
-                        ? "linear-gradient(135deg, #285BAA 0%, #3B82F6 100%)"
-                        : "var(--color-surface)",
-                    border:
-                      selectedHospital === hospital
-                        ? "2px solid #285BAA"
-                        : "1px solid var(--color-border)",
-                    borderRadius: "16px",
-                    padding: "16px",
-                    cursor: "pointer",
-                    transition: "all 0.2s",
-                    color:
-                      selectedHospital === hospital
-                        ? "white"
-                        : "var(--color-text-primary)",
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "12px",
-                  }}
-                >
-                  <div
-                    style={{
-                      width: "48px",
-                      height: "48px",
-                      borderRadius: "12px",
-                      background:
-                        selectedHospital === hospital
-                          ? "rgba(255,255,255,0.2)"
-                          : "linear-gradient(135deg, #285BAA 0%, #3B82F6 100%)",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                    }}
-                  >
-                    <Building2 className="w-6 h-6" style={{ color: "white" }} />
-                  </div>
-                  <div style={{ flex: 1, textAlign: "left" }}>
-                    <p style={{ fontWeight: "600", fontSize: "1rem" }}>{hospital}</p>
-                  </div>
-                </button>
-              ))}
-
-              {/* Custom Hospital Input */}
-              <div>
-                <input
-                  type="text"
-                  placeholder="다른 병원 입력..."
-                  value={
-                    hospitals.includes(selectedHospital) ? "" : selectedHospital
-                  }
-                  onChange={(e) => setSelectedHospital(e.target.value)}
-                  style={{
-                    width: "100%",
-                    padding: "16px",
-                    borderRadius: "16px",
-                    border: "1px solid var(--color-border)",
-                    background: "var(--color-surface)",
-                    fontSize: "1rem",
-                    color: "var(--color-text-primary)",
-                  }}
-                />
-              </div>
-            </div>
-          ) : (
-            <div>
-              <input
-                type="text"
-                placeholder="병원 이름을 입력해주세요"
-                value={selectedHospital}
-                onChange={(e) => setSelectedHospital(e.target.value)}
-                style={{
-                  width: "100%",
-                  padding: "16px",
-                  borderRadius: "16px",
-                  border: "1px solid var(--color-border)",
-                  background: "var(--color-surface)",
-                  fontSize: "1rem",
-                  color: "var(--color-text-primary)",
-                }}
-              />
-            </div>
-          )}
-        </div>
-
-        {/* Step 2: Visit Type Selection */}
-        {selectedHospital && (
-          <div style={{ marginBottom: "32px" }}>
-            <h2
-              style={{
-                fontSize: "1.125rem",
-                fontWeight: "700",
-                marginBottom: "16px",
-                color: "var(--color-text-primary)",
-              }}
-            >
-              2. 방문 목적 선택
-            </h2>
 
             <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
               {/* New Symptom */}
@@ -360,9 +243,8 @@ export default function HospitalVisitPage() {
               </button>
             </div>
           </div>
-        )}
 
-        {/* Step 3: Related Prescription Selection (if follow-up) */}
+        {/* Step 2: Related Prescription Selection (if follow-up) */}
         {visitType === "followup" && records.length > 0 && (
           <div style={{ marginBottom: "32px" }}>
             <h2
@@ -373,7 +255,7 @@ export default function HospitalVisitPage() {
                 color: "var(--color-text-primary)",
               }}
             >
-              3. 관련 처방 선택 (선택사항)
+              2. 관련 처방 선택 (선택사항)
             </h2>
 
             <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
@@ -434,7 +316,7 @@ export default function HospitalVisitPage() {
         )}
 
         {/* Continue Button */}
-        {selectedHospital && visitType && (
+        {visitType && (
           <button
             onClick={handleContinue}
             style={{

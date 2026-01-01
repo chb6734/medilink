@@ -11,37 +11,38 @@ function QuestionnaireContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  // Get hospital and visit type from URL params (from hospital-visit page)
-  const hospital = searchParams.get("hospital") || "";
+  // Get visit type from URL params (from hospital-visit page)
   const visitType = searchParams.get("visitType") || "new";
   const recordId = searchParams.get("recordId") || undefined;
 
-  // Prepare initial data if hospital is already selected
-  const initialData: Partial<QuestionnaireData> = hospital
-    ? { hospitalName: hospital }
-    : {};
-
   return (
     <Questionnaire
-      initialData={initialData}
+      initialData={{}}
       visitType={visitType as "new" | "followup"}
       relatedRecordId={recordId}
-      onBack={() => router.push("/")}
-      onComplete={async () => {
-        try {
-          const patientId = getOrCreatePatientId();
-          const { token } = await createShareToken({ patientId });
-          router.push(`/share?token=${encodeURIComponent(token)}`);
-        } catch (e) {
-          const msg = String((e as any)?.message ?? e);
-          if (msg.includes("401") || msg.includes("unauthorized")) {
-            router.push("/login");
-            return;
-          }
-          // 데모 UX: 토큰 없이도 공유 화면 형태를 보여주기 위해 랜덤 토큰
-          const t = Math.random().toString(36).slice(2);
-          router.push(`/share?token=${encodeURIComponent(t)}`);
+      onBack={() => router.push("/hospital-visit")}
+      onComplete={async (data: QuestionnaireData) => {
+        // 1. sessionStorage에 문진표 데이터 저장
+        sessionStorage.setItem("questionnaireData", JSON.stringify(data));
+
+        // 2. 새로운 증상: AI 진료과 추천 → 병원 선택
+        if (visitType === "new") {
+          router.push(
+            `/hospital-select?visitType=new&symptoms=${encodeURIComponent(
+              data.chiefComplaint || ""
+            )}`
+          );
+          return;
         }
+
+        // 3. 이전 처방: 병원 선택 (기본값: 이전 병원)
+        if (visitType === "followup" && recordId) {
+          router.push(`/hospital-select?visitType=followup&recordId=${recordId}`);
+          return;
+        }
+
+        // Fallback: 병원 선택 페이지로 이동
+        router.push(`/hospital-select?visitType=${visitType}`);
       }}
     />
   );

@@ -397,3 +397,61 @@ export async function updateMedicationCheck(
     }
   );
 }
+
+// ============= IntakeForm (문진표) API =============
+
+export type IntakeForm = {
+  id: string;
+  patientId: string;
+  facilityId: string | null;
+  facility: Facility | null;
+  visitType: "new_symptom" | "followup";
+  relatedRecordId: string | null;
+  chiefComplaint: string;
+  onsetText: string | null;
+  course: "improving" | "worsening" | "no_change" | "unknown";
+  courseNote: string | null;
+  adherence: "yes" | "partial" | "no" | "unknown";
+  adherenceReason: string | null;
+  adverseEvents: string | null;
+  allergies: string | null;
+  createdAt: string;
+};
+
+export async function createIntakeForm(params: {
+  patientId: string;
+  facilityId?: string;
+  visitType: "new_symptom" | "followup";
+  relatedRecordId?: string;
+  chiefComplaint: string;
+  onsetText?: string;
+  course: "improving" | "worsening" | "no_change" | "unknown";
+  courseNote?: string;
+  adherence: "yes" | "partial" | "no" | "unknown";
+  adherenceReason?: string;
+  adverseEvents?: string;
+  allergies?: string;
+}): Promise<IntakeForm> {
+  return await fetchJson<IntakeForm>("/api/intake-forms", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(params),
+  });
+}
+
+export async function getIntakeForms(patientId: string): Promise<IntakeForm[]> {
+  return await fetchJson<IntakeForm[]>(`/api/intake-forms?patientId=${patientId}`, {
+    method: "GET",
+  });
+}
+
+export async function findOrCreateFacility(params: {
+  name: string;
+  type?: "clinic" | "hospital" | "pharmacy" | "unknown";
+}): Promise<Facility> {
+  return await fetchJson<Facility>("/api/facilities/find-or-create", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(params),
+  });
+}

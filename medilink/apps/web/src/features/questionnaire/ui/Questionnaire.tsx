@@ -1,15 +1,10 @@
 import React, { useMemo, useState, useEffect } from "react";
 import {
   ArrowLeft,
-  Building2,
   ChevronDown,
-  ChevronRight,
-  Search,
-  Sparkles,
 } from "lucide-react";
 import type { QuestionnaireData } from "@/entities/questionnaire/model/types";
-import { searchFacilities, recommendSpecialty, getPatientInfo } from "@/shared/api";
-import type { Facility } from "@/shared/api/medilink";
+import { getPatientInfo } from "@/shared/api";
 
 interface QuestionnaireProps {
   initialData?: Partial<QuestionnaireData>;
@@ -26,10 +21,9 @@ export function Questionnaire({
   onBack,
   onComplete,
 }: QuestionnaireProps) {
-  // Start at step 1 if hospital is already provided, else start at step 0
-  const [step, setStep] = useState(initialData.hospitalName ? 1 : 0);
+  // Start at step 0 (no hospital selection step)
+  const [step, setStep] = useState(0);
   const [formData, setFormData] = useState<Partial<QuestionnaireData>>(initialData);
-  const [hospitalQuery, setHospitalQuery] = useState("");
   const [symptomDetail, setSymptomDetail] = useState(
     formData.symptomDetail ?? ""
   );
@@ -60,11 +54,6 @@ export function Questionnaire({
 
   const steps = useMemo(
     () => [
-      {
-        id: "hospitalName" as const,
-        kind: "hospital" as const,
-        required: true,
-      },
       {
         id: "chiefComplaint" as const,
         kind: "symptom" as const,
@@ -146,10 +135,6 @@ export function Questionnaire({
   };
 
   const isCurrentStepValid = () => {
-    if (current.kind === "hospital") {
-      const v = formData.hospitalName;
-      return !!v && v.trim().length > 0;
-    }
     if (current.kind === "symptom") {
       const chief = formData.chiefComplaint;
       return !!chief && chief.trim().length > 0;
@@ -232,226 +217,6 @@ export function Questionnaire({
             border: "1px solid var(--color-border)",
           }}
         >
-          {current.kind === "hospital" && (
-            <>
-              <h1
-                style={{
-                  marginBottom: 8,
-                  fontSize: "1.75rem",
-                  fontWeight: 800,
-                  letterSpacing: "-0.02em",
-                }}
-              >
-                방문하실 병원 선택
-              </h1>
-              <p
-                style={{
-                  color: "var(--color-text-secondary)",
-                  marginBottom: 18,
-                  lineHeight: 1.5,
-                }}
-              >
-                병원 또는 의원을 검색해 선택해주세요
-              </p>
-
-              <div style={{ position: "relative", marginBottom: 16 }}>
-                <Search
-                  className="w-5 h-5"
-                  style={{
-                    position: "absolute",
-                    left: 14,
-                    top: 14,
-                    color: "var(--color-text-tertiary)",
-                  }}
-                />
-                <input
-                  value={hospitalQuery}
-                  onChange={(e) => {
-                    setHospitalQuery(e.target.value);
-                    updateFormData("hospitalName", e.target.value);
-                  }}
-                  placeholder="병원 또는 의원 검색..."
-                  autoFocus
-                  style={{
-                    width: "100%",
-                    padding: "14px 14px 14px 44px",
-                    border: "2px solid #D1D5DB",
-                    borderRadius: 14,
-                    fontSize: "1.0625rem",
-                    background: "white",
-                    outline: "none",
-                  }}
-                  onFocus={(e) =>
-                    (e.currentTarget.style.borderColor = "var(--color-accent)")
-                  }
-                  onBlur={(e) =>
-                    (e.currentTarget.style.borderColor = "#D1D5DB")
-                  }
-                />
-              </div>
-
-              <div
-                style={{ display: "flex", flexDirection: "column", gap: 12 }}
-              >
-                {/* direct input */}
-                {hospitalQuery.trim().length > 1 && (
-                  <button
-                    onClick={() => {
-                      updateFormData("hospitalName", hospitalQuery.trim());
-                      setStep((s) => Math.min(s + 1, steps.length - 1));
-                    }}
-                    style={{
-                      width: "100%",
-                      textAlign: "left",
-                      padding: "16px 16px",
-                      borderRadius: 16,
-                      border: "1px solid #E5E7EB",
-                      background: "white",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "space-between",
-                      cursor: "pointer",
-                    }}
-                  >
-                    <div
-                      style={{ display: "flex", alignItems: "center", gap: 12 }}
-                    >
-                      <div
-                        style={{
-                          width: 44,
-                          height: 44,
-                          borderRadius: 12,
-                          background: "#F3F4F6",
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          flexShrink: 0,
-                        }}
-                      >
-                        <Search
-                          className="w-5 h-5"
-                          style={{ color: "#6B7280" }}
-                        />
-                      </div>
-                      <div>
-                        <div style={{ fontWeight: 800, fontSize: "1.0625rem" }}>
-                          {hospitalQuery.trim()}
-                        </div>
-                        <div
-                          style={{
-                            color: "var(--color-text-secondary)",
-                            fontSize: "0.9375rem",
-                          }}
-                        >
-                          검색어로 병원명을 직접 입력하기
-                        </div>
-                      </div>
-                    </div>
-                    <ChevronRight
-                      className="w-5 h-5"
-                      style={{ color: "#9CA3AF", flexShrink: 0 }}
-                    />
-                  </button>
-                )}
-                {[
-                  {
-                    name: "삼성서울병원",
-                    address: "서울특별시 강남구 일원로 81",
-                  },
-                  {
-                    name: "아산병원",
-                    address: "서울특별시 송파구 올림픽로43길 88",
-                  },
-                  {
-                    name: "강남세브란스병원",
-                    address: "서울특별시 강남구 언주로 211",
-                  },
-                  {
-                    name: "중앙내과의원",
-                    address: "서울특별시 중구 명동길 73",
-                  },
-                ]
-                  .filter((h) => {
-                    const q = hospitalQuery.trim();
-                    if (!q) return true;
-                    return `${h.name} ${h.address}`.includes(q);
-                  })
-                  .map((h) => {
-                    const selected = formData.hospitalName === h.name;
-                    return (
-                      <button
-                        key={h.name}
-                        onClick={() => {
-                          updateFormData("hospitalName", h.name);
-                          setHospitalQuery(h.name);
-                          // 선택 즉시 다음 단계로
-                          setStep((s) => Math.min(s + 1, steps.length - 1));
-                        }}
-                        style={{
-                          width: "100%",
-                          textAlign: "left",
-                          padding: "16px 16px",
-                          borderRadius: 16,
-                          border: selected
-                            ? "2px solid var(--color-accent)"
-                            : "1px solid #E5E7EB",
-                          background: "white",
-                          display: "flex",
-                          alignItems: "center",
-                          gap: 14,
-                          cursor: "pointer",
-                        }}
-                      >
-                        <div
-                          style={{
-                            width: 44,
-                            height: 44,
-                            borderRadius: 12,
-                            background: "#EFF6FF",
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            flexShrink: 0,
-                          }}
-                        >
-                          <Building2
-                            className="w-6 h-6"
-                            style={{ color: "#2563EB" }}
-                          />
-                        </div>
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <div
-                            style={{
-                              fontWeight: 800,
-                              fontSize: "1.0625rem",
-                              marginBottom: 4,
-                            }}
-                          >
-                            {h.name}
-                          </div>
-                          <div
-                            style={{
-                              color: "var(--color-text-secondary)",
-                              fontSize: "0.9375rem",
-                              whiteSpace: "nowrap",
-                              overflow: "hidden",
-                              textOverflow: "ellipsis",
-                            }}
-                          >
-                            {h.address}
-                          </div>
-                        </div>
-                        <ChevronRight
-                          className="w-5 h-5"
-                          style={{ color: "#9CA3AF", flexShrink: 0 }}
-                        />
-                      </button>
-                    );
-                  })}
-              </div>
-            </>
-          )}
-
           {current.kind === "symptom" && (
             <>
               <h1
