@@ -4,6 +4,7 @@ import { PrismaService } from '../../database/prisma.service';
 import { CustomLoggerService } from '../../common/logger/logger.service';
 import { useInMemoryStore } from '../../lib/config';
 import { memGetRecords, memAddRecord } from '../../lib/memory';
+import { analyzePatientStatus } from '../../lib/gemini';
 import crypto from 'node:crypto';
 
 /**
@@ -370,6 +371,268 @@ export class RecordsService {
         createdAt: record.createdAt,
       };
     });
+  }
+
+  /**
+   * 의사용 환자 요약 정보 조회
+   *
+   * @param patientId - 환자 ID
+   * @returns 처방 기록, 접수 양식, 현재 복용 약물, 복약 이력, AI 분석 결과
+   */
+  async getDoctorSummary(patientId: string) {
+    this.logger.log(`Getting doctor summary for patient ${patientId}`);
+
+    if (useInMemoryStore) {
+      // Return empty data for in-memory store
+      return {
+        records: [],
+        intakeForms: [],
+        currentMedications: [],
+        medicationHistory: [],
+        aiAnalysis: null,
+      };
+    }
+
+    // First get all prescription records for this patient
+    const patientRecords = await this.prisma.prescriptionRecord.findMany({
+      where: { patientId },
+      select: { id: true },
+    });
+    const recordIds = patientRecords.map((r) => r.id);
+
+    const [records, intakeForms, medicationChecks, dailyConditions] =
+      await Promise.all([
+        this.prisma.prescriptionRecord.findMany({
+          where: { patientId },
+          include: {
+            medItems: true,
+            facility: true,
+            ocrExtraction: true,
+          },
+          orderBy: { createdAt: 'desc' },
+          take: 20,
+        }),
+        this.prisma.intakeForm.findMany({
+          where: { patientId },
+          include: {
+            facility: true,
+          },
+          orderBy: { createdAt: 'desc' },
+          take: 10,
+        }),
+        this.prisma.medicationCheck.findMany({
+          where: {
+            prescriptionRecordId: {
+              in: recordIds,
+            },
+          },
+          orderBy: { scheduledAt: 'desc' },
+          take: 100,
+        }),
+        this.prisma.dailyCondition.findMany({
+          where: { patientId },
+          orderBy: { recordDate: 'desc' },
+          take: 30,
+        }),
+      ]);
+
+    // Get current medications
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const currentMeds: Array<{
+      id: string;
+      name: string;
+      dosage: string;
+      frequency: string;
+      startDate: string;
+      endDate: string | null;
+      prescribedBy: string;
+      confidence?: number;
+      recordId: string;
+      recordDate: string;
+    }> = [];
+
+    for (const record of records) {
+      const recordDate =
+        record.prescribedAt || record.dispensedAt || record.createdAt;
+      for (const med of record.medItems) {
+        const startDate = new Date(recordDate);
+        const durationDays = med.durationDays || 7;
+        const endDate = new Date(startDate);
+        endDate.setDate(endDate.getDate() + durationDays);
+
+        // Only include medications that have not ended yet (endDate > today)
+        if (endDate > today) {
+          currentMeds.push({
+            id: med.id,
+            name: med.nameRaw,
+            dosage: med.dose || '',
+            frequency: med.frequency || '',
+            startDate: startDate.toISOString().slice(0, 10),
+            endDate: endDate.toISOString().slice(0, 10),
+            prescribedBy: record.facility?.name || '',
+            confidence: med.confidence || undefined,
+            recordId: record.id,
+            recordDate: recordDate.toISOString().slice(0, 10),
+          });
+        }
+      }
+    }
+
+    // Build medication history from MedicationCheck and DailyCondition
+    const medicationHistoryMap = new Map<
+      string,
+      {
+        date: Date;
+        dateStr: string;
+        taken: boolean;
+        symptomLevel: number;
+        notes: string | null;
+      }
+    >();
+
+    // Process medication checks (복약 체크 기록)
+    for (const check of medicationChecks) {
+      const dateStr = check.scheduledAt.toISOString().slice(0, 10);
+      if (!medicationHistoryMap.has(dateStr)) {
+        medicationHistoryMap.set(dateStr, {
+          date: check.scheduledAt,
+          dateStr,
+          taken: check.isTaken,
+          symptomLevel: 3, // default, will be updated by DailyCondition
+          notes: null,
+        });
+      } else {
+        // If multiple checks on same day, consider taken if any is taken
+        const existing = medicationHistoryMap.get(dateStr)!;
+        existing.taken = existing.taken || check.isTaken;
+      }
+    }
+
+    // Process daily conditions (일별 컨디션 기록)
+    for (const condition of dailyConditions) {
+      const dateStr = condition.recordDate.toISOString().slice(0, 10);
+      const symptomLevel =
+        condition.status === 'improving'
+          ? 1
+          : condition.status === 'same'
+            ? 3
+            : condition.status === 'worsening'
+              ? 5
+              : condition.status === 'fluctuating'
+                ? 4
+                : 3;
+
+      if (medicationHistoryMap.has(dateStr)) {
+        const existing = medicationHistoryMap.get(dateStr)!;
+        existing.symptomLevel = symptomLevel;
+        existing.notes = condition.note || existing.notes;
+      } else {
+        medicationHistoryMap.set(dateStr, {
+          date: condition.recordDate,
+          dateStr,
+          taken: false, // No medication check data for this day
+          symptomLevel,
+          notes: condition.note || null,
+        });
+      }
+    }
+
+    // Convert to array and sort by date descending
+    const medicationHistory = Array.from(medicationHistoryMap.values())
+      .sort((a, b) => b.date.getTime() - a.date.getTime())
+      .slice(0, 14); // Last 14 days
+
+    // Get AI analysis
+    let aiAnalysis: string | null = null;
+    try {
+      const latestIntake = intakeForms[0];
+
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call
+      const analysisResult: string | null = await analyzePatientStatus({
+        chiefComplaints: intakeForms.map((f) => ({
+          complaint: f.chiefComplaint,
+          date: f.createdAt.toISOString().slice(0, 10),
+        })),
+        currentMedications: currentMeds.map((m) => ({
+          name: m.name,
+          dosage: m.dosage,
+          frequency: m.frequency,
+        })),
+        medicationHistory: medicationHistory.map((h) => ({
+          date: h.dateStr,
+          taken: h.taken,
+          symptomLevel: h.symptomLevel,
+          notes: h.notes || undefined,
+        })),
+        patientNotes:
+          latestIntake?.adherenceReason ||
+          latestIntake?.courseNote ||
+          undefined,
+      });
+      aiAnalysis = analysisResult;
+    } catch (error) {
+      this.logger.error('AI 분석 실패:', error);
+      aiAnalysis = null;
+    }
+
+    return {
+      records: records.map((r) => ({
+        id: r.id,
+        prescriptionDate: (r.prescribedAt || r.dispensedAt || r.createdAt)
+          .toISOString()
+          .slice(0, 10),
+        hospitalName:
+          r.facility?.type === 'hospital' || r.facility?.type === 'clinic'
+            ? r.facility.name
+            : undefined,
+        pharmacyName:
+          r.facility?.type === 'pharmacy' ? r.facility.name : undefined,
+        chiefComplaint: r.chiefComplaint || undefined,
+        diagnosis: r.doctorDiagnosis || undefined,
+        medications: r.medItems.map((m) => ({
+          id: m.id,
+          name: m.nameRaw,
+          dosage: m.dose || '',
+          frequency: m.frequency || '',
+          startDate: (r.prescribedAt || r.dispensedAt || r.createdAt)
+            .toISOString()
+            .slice(0, 10),
+          endDate: m.durationDays
+            ? new Date(
+                new Date(
+                  r.prescribedAt || r.dispensedAt || r.createdAt,
+                ).getTime() +
+                  m.durationDays * 24 * 60 * 60 * 1000,
+              )
+                .toISOString()
+                .slice(0, 10)
+            : undefined,
+          prescribedBy: r.facility?.name || '',
+          confidence: m.confidence || undefined,
+        })),
+        ocrConfidence: r.ocrExtraction?.overallConfidence || undefined,
+      })),
+      intakeForms: intakeForms.map((f) => ({
+        id: f.id,
+        chiefComplaint: f.chiefComplaint,
+        symptomStart:
+          f.onsetText || f.onsetAt?.toISOString().slice(0, 10) || '',
+        symptomProgress: f.courseNote || f.course,
+        sideEffects: f.adverseEvents || '없음',
+        allergies: f.allergies || '없음',
+        patientNotes: f.adherenceReason || undefined,
+        createdAt: f.createdAt.toISOString(),
+      })),
+      currentMedications: currentMeds,
+      medicationHistory: medicationHistory.map((h) => ({
+        date: h.dateStr,
+        taken: h.taken,
+        symptomLevel: h.symptomLevel,
+        notes: h.notes,
+      })),
+      aiAnalysis,
+    };
   }
 
   /**
