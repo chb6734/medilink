@@ -343,3 +343,28 @@ export async function recommendSpecialty(params: {
     body: JSON.stringify(params),
   });
 }
+
+// ============= 복약 순응도 API =============
+
+export type AdherenceGrade = {
+  grade: "excellent" | "good" | "fair" | "poor";
+  label: string;
+  description: string;
+  color: string;
+};
+
+export type AdherenceResponse = {
+  overall: number | null;
+  last7Days: number | null;
+  last14Days: number | null;
+  last30Days: number | null;
+  grade: AdherenceGrade | null;
+  dailyAdherence: Record<string, number>;
+  message?: string;
+};
+
+export async function getAdherence(recordId: string): Promise<AdherenceResponse> {
+  return await fetchJson<AdherenceResponse>(`/api/records/${recordId}/adherence`, {
+    method: "GET",
+  });
+}
