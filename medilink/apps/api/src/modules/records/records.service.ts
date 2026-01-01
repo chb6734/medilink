@@ -1,10 +1,24 @@
-import { Injectable, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  BadRequestException,
+  ServiceUnavailableException,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../../database/prisma.service';
 import { CustomLoggerService } from '../../common/logger/logger.service';
-import { useInMemoryStore } from '../../lib/config';
+import { useInMemoryStore, visionEnabled } from '../../lib/config';
 import { memGetRecords, memAddRecord } from '../../lib/memory';
 import { analyzePatientStatus } from '../../lib/gemini';
+import {
+  ocrTextFromImageBytes,
+  type TextAnnotation,
+  type OcrResult,
+} from '../../lib/vision';
+import {
+  extractMedicationsFromImage,
+  isGeminiOcrEnabled,
+} from '../../lib/genaiOcr';
+import { parseMedCandidates } from '../../lib/meds';
 import crypto from 'node:crypto';
 
 /**
@@ -371,6 +385,179 @@ export class RecordsService {
         createdAt: record.createdAt,
       };
     });
+  }
+
+  /**
+   * OCR 미리보기 (DB 저장 없이 OCR 결과만 반환)
+   *
+   * @param fileBuffer - 이미지 파일 버퍼
+   * @param mimeType - MIME 타입
+   * @returns OCR 결과 (rawText, medications, textAnnotations 등)
+   */
+  async previewOcr(fileBuffer: Buffer, mimeType?: string) {
+    this.logger.log('OCR preview requested');
+
+    const buf = fileBuffer;
+    let text = '';
+    let overallConfidence: number | null = null;
+    let hospitalName: string | null = null;
+    let patientCondition: string | null = null;
+    let medicationsDetailed: Array<{
+      medicationName: string;
+      dose: string | null;
+      frequency: string | null;
+      duration: string | null;
+      prescriptionDate: string | null;
+      dispensingDate: string | null;
+      confidence: number;
+      ingredients: string | null;
+      indication: string | null;
+      dosesPerDay: number | null;
+      totalDoses: number | null;
+    }> | null = null;
+
+    // Prefer Gemini multimodal extraction if enabled (AS-IS behavior)
+    const geminiEnabled = isGeminiOcrEnabled();
+    this.logger.log('\n' + '='.repeat(80));
+    this.logger.log('📸 OCR 요청 받음');
+    this.logger.log('='.repeat(80));
+    this.logger.log(`파일 크기: ${buf.length} bytes`);
+    this.logger.log(`MIME 타입: ${mimeType}`);
+    this.logger.log(`Gemini OCR 활성화: ${geminiEnabled}`);
+    this.logger.log('='.repeat(80) + '\n');
+
+    // Vision API에서 bounding box 정보 가져오기 (Gemini OCR과 병렬로 실행)
+    // Gemini OCR을 사용하더라도 bounding box 정보를 위해 Vision API 호출 시도
+    let textAnnotations: TextAnnotation[] | undefined = undefined;
+    this.logger.log(`\n🔍 Vision API 설정 확인:`, {
+      visionEnabled,
+      geminiEnabled,
+    });
+
+    // Gemini OCR을 사용할 때도 bounding box를 위해 Vision API 호출 시도
+    const shouldCallVision = visionEnabled || geminiEnabled;
+    const visionPromise: Promise<TextAnnotation[] | undefined> =
+      shouldCallVision
+        ? (ocrTextFromImageBytes(buf) as Promise<OcrResult>)
+            .then((r): TextAnnotation[] => {
+              // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
+              const count = r.textAnnotations.length;
+              this.logger.log(`✅ Vision API 성공: ${count}개 텍스트 영역 발견`);
+              // eslint-disable-next-line @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-member-access
+              return r.textAnnotations;
+            })
+            .catch((e: unknown): undefined => {
+              const errorMessage = e instanceof Error ? e.message : String(e);
+              const errorStack = e instanceof Error ? e.stack : undefined;
+              this.logger.error('❌ Vision API 호출 실패:', errorMessage);
+              if (errorStack) {
+                this.logger.error('   스택:', errorStack);
+              }
+              this.logger.warn('   ⚠️ bounding box 정보 없이 계속 진행합니다.');
+              return undefined;
+            })
+        : Promise.resolve<TextAnnotation[] | undefined>(undefined);
+
+    if (geminiEnabled) {
+      this.logger.log('🚀 Gemini OCR 시작...\n');
+      const r = await extractMedicationsFromImage(
+        buf,
+        mimeType || 'image/jpeg',
+      );
+      text = r.rawText ?? '';
+      overallConfidence = null;
+      hospitalName = r.hospitalName ?? null;
+      patientCondition = r.patientCondition ?? null;
+      medicationsDetailed = r.medications.map((m) => ({
+        medicationName: m.medicationName,
+        dose: m.dose ?? null,
+        frequency: m.frequency ?? null,
+        duration: m.duration ?? null,
+        prescriptionDate: m.prescriptionDate ?? null,
+        dispensingDate: m.dispensingDate ?? null,
+        confidence: m.confidence,
+        ingredients: m.ingredients ?? null,
+        indication: m.indication ?? null,
+        dosesPerDay: m.dosesPerDay ?? null,
+        totalDoses: m.totalDoses ?? null,
+      }));
+      this.logger.log('✅ Gemini OCR 완료\n');
+
+      // Vision API 결과도 가져오기 (bounding box용)
+      const visionResult = await visionPromise;
+      if (visionResult && visionResult.length > 0) {
+        textAnnotations = visionResult;
+        this.logger.log(
+          `📦 Vision API bounding box 정보: ${visionResult.length}개 텍스트 영역`,
+        );
+        const sampleAnnotations: TextAnnotation[] = Array.isArray(visionResult)
+          ? visionResult.slice(0, 5)
+          : [];
+        this.logger.log(
+          `   샘플 (처음 5개):`,
+          sampleAnnotations.map((a: TextAnnotation) => {
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
+            const text = a.text.substring(0, 20);
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
+            const bbox = a.boundingBox;
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+            return { text, bbox };
+          }),
+        );
+      } else {
+        textAnnotations = undefined;
+        this.logger.warn(
+          `⚠️ Vision API bounding box 정보 없음 (textAnnotations: ${visionResult?.length ?? 0}개)`,
+        );
+      }
+    } else if (useInMemoryStore && !visionEnabled) {
+      text =
+        'OCR 미설정(개발 모드) — 실제 배포에서는 Google Cloud Vision 설정이 필요합니다.';
+      overallConfidence = null;
+    } else {
+      try {
+        const r = await ocrTextFromImageBytes(buf);
+        text = r.text;
+        overallConfidence = r.overallConfidence;
+        textAnnotations = r.textAnnotations as TextAnnotation[]; // Vision API에서 bounding box 정보 가져오기
+      } catch (e: unknown) {
+        if (useInMemoryStore) {
+          text =
+            'OCR 미설정(개발 모드) — 실제 배포에서는 Google Cloud Vision 설정이 필요합니다.';
+          overallConfidence = null;
+        } else {
+          const errorMessage = e instanceof Error ? e.message : String(e);
+          throw new ServiceUnavailableException({
+            error: 'ocr_unavailable',
+            hint: 'Configure Google Cloud Vision credentials (ADC / GOOGLE_APPLICATION_CREDENTIALS).',
+            details: errorMessage,
+          });
+        }
+      }
+    }
+
+    const meds = medicationsDetailed
+      ? medicationsDetailed.map((m) => m.medicationName).filter(Boolean)
+      : parseMedCandidates(text);
+
+    const response = {
+      rawText: text,
+      overallConfidence,
+      meds: meds.map((nameRaw) => ({ nameRaw, confidence: null })),
+      hospitalName,
+      patientCondition,
+      medications: medicationsDetailed,
+      textAnnotations, // bounding box 정보 포함
+    };
+
+    this.logger.log(`\n📤 응답 데이터:`, {
+      rawTextLength: response.rawText?.length || 0,
+      textAnnotationsCount: response.textAnnotations?.length || 0,
+      medicationsCount: response.medications?.length || 0,
+      hospitalName: response.hospitalName || '없음',
+    });
+
+    return response;
   }
 
   /**
