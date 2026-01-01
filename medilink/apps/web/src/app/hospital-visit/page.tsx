@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { authMe, getRecords } from "@/shared/api";
 import { getOrCreatePatientId } from "@/entities/patient/lib/patientId";
-import { ArrowLeft, Building2, Clock, FileText, Pill } from "lucide-react";
+import { ArrowLeft, Building2, Clock, FileText, Pill, Camera } from "lucide-react";
 import type { PrescriptionRecord } from "@/entities/record/model/types";
 
 export default function HospitalVisitPage() {
@@ -245,7 +245,7 @@ export default function HospitalVisitPage() {
           </div>
 
         {/* Step 2: Related Prescription Selection (if follow-up) */}
-        {visitType === "followup" && records.length > 0 && (
+        {visitType === "followup" && (
           <div style={{ marginBottom: "32px" }}>
             <h2
               style={{
@@ -255,11 +255,85 @@ export default function HospitalVisitPage() {
                 color: "var(--color-text-primary)",
               }}
             >
-              2. 관련 처방 선택 (선택사항)
+              2. 처방 정보 입력
             </h2>
 
-            <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
-              {records.slice(0, 5).map((record) => (
+            {/* 약 촬영 버튼 */}
+            <button
+              onClick={() => router.push("/prescription-capture?visitType=followup")}
+              style={{
+                width: "100%",
+                padding: "20px",
+                borderRadius: "16px",
+                border: "2px solid #8B5CF6",
+                background: "linear-gradient(135deg, #8B5CF6 0%, #A78BFA 100%)",
+                color: "white",
+                cursor: "pointer",
+                transition: "all 0.2s",
+                marginBottom: "16px",
+                textAlign: "left",
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.transform = "translateY(-2px)";
+                e.currentTarget.style.boxShadow = "0 6px 16px rgba(139, 92, 246, 0.4)";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.transform = "translateY(0)";
+                e.currentTarget.style.boxShadow = "none";
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                <div
+                  style={{
+                    width: "48px",
+                    height: "48px",
+                    borderRadius: "12px",
+                    background: "rgba(255,255,255,0.2)",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  <Camera className="w-6 h-6" style={{ color: "white" }} />
+                </div>
+                <div style={{ flex: 1 }}>
+                  <p style={{ fontWeight: "700", fontSize: "1rem", marginBottom: "4px" }}>
+                    약봉지/처방전 촬영
+                  </p>
+                  <p style={{ fontSize: "0.875rem", opacity: 0.9 }}>
+                    사진을 찍어서 처방 정보 불러오기
+                  </p>
+                </div>
+              </div>
+            </button>
+
+            {records.length > 0 && (
+              <>
+                <div
+                  style={{
+                    textAlign: "center",
+                    margin: "16px 0",
+                    color: "var(--color-text-secondary)",
+                    fontSize: "0.875rem",
+                    fontWeight: "600",
+                  }}
+                >
+                  또는
+                </div>
+
+                <h3
+                  style={{
+                    fontSize: "0.9375rem",
+                    fontWeight: "600",
+                    marginBottom: "12px",
+                    color: "var(--color-text-secondary)",
+                  }}
+                >
+                  이전 처방 선택 (선택사항)
+                </h3>
+
+                <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+                  {records.slice(0, 5).map((record) => (
                 <button
                   key={record.id}
                   onClick={() => setSelectedRecord(record.id)}
@@ -311,7 +385,9 @@ export default function HospitalVisitPage() {
                   </div>
                 </button>
               ))}
-            </div>
+                </div>
+              </>
+            )}
           </div>
         )}
 

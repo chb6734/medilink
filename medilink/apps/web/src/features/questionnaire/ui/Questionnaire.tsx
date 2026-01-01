@@ -1,8 +1,5 @@
 import React, { useMemo, useState, useEffect } from "react";
-import {
-  ArrowLeft,
-  ChevronDown,
-} from "lucide-react";
+import { ArrowLeft, ChevronDown } from "lucide-react";
 import type { QuestionnaireData } from "@/entities/questionnaire/model/types";
 import { getPatientInfo } from "@/shared/api";
 
@@ -14,16 +11,12 @@ interface QuestionnaireProps {
   onComplete: (data: QuestionnaireData) => void;
 }
 
-export function Questionnaire({
-  initialData = {},
-  visitType = "new",
-  relatedRecordId,
-  onBack,
-  onComplete,
-}: QuestionnaireProps) {
+export function Questionnaire(props: QuestionnaireProps) {
+  const { initialData = {}, onBack, onComplete } = props;
   // Start at step 0 (no hospital selection step)
   const [step, setStep] = useState(0);
-  const [formData, setFormData] = useState<Partial<QuestionnaireData>>(initialData);
+  const [formData, setFormData] =
+    useState<Partial<QuestionnaireData>>(initialData);
   const [symptomDetail, setSymptomDetail] = useState(
     formData.symptomDetail ?? ""
   );
@@ -34,13 +27,16 @@ export function Questionnaire({
     (async () => {
       try {
         const patientInfo = await getPatientInfo();
-        if (!cancelled && patientInfo.allergies && !formData.allergies) {
-          // 알레르기 정보가 있고, 폼에 아직 입력되지 않았다면 자동 입력
-          setFormData((prev) => ({
-            ...prev,
-            allergies: patientInfo.allergies || "",
-          }));
-        }
+        if (cancelled || !patientInfo.allergies) return;
+        // 알레르기 정보가 있고, 폼에 아직 입력되지 않았다면 자동 입력
+        setFormData((prev) =>
+          prev.allergies
+            ? prev
+            : {
+                ...prev,
+                allergies: patientInfo.allergies || "",
+              }
+        );
       } catch (error) {
         // 환자 정보 조회 실패 시 무시 (로그인하지 않았거나 정보 없음)
         console.log("Could not load patient allergies:", error);
@@ -225,9 +221,10 @@ export function Questionnaire({
                   fontSize: "1.75rem",
                   fontWeight: 800,
                   letterSpacing: "-0.02em",
+                  color: "#fff",
                 }}
               >
-                주호소
+                방문 사유
               </h1>
               <p
                 style={{
