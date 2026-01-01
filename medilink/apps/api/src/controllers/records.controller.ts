@@ -179,12 +179,23 @@ export class RecordsController {
     const buf = file.buffer;
     let text = '';
 
+    // medications이 string으로 온 경우 파싱 (query parameter JSON string)
+    let parsedMedications = query.medications;
+    if (typeof query.medications === 'string') {
+      try {
+        parsedMedications = JSON.parse(query.medications);
+      } catch (e) {
+        console.error('Failed to parse medications:', e);
+        parsedMedications = undefined;
+      }
+    }
+
     // 클라이언트가 약물 정보를 보냈다면 OCR을 다시 하지 않음 (성능 및 정확도 향상)
-    if (query.medications && query.medications.length > 0) {
+    if (parsedMedications && parsedMedications.length > 0) {
       console.log(
         '✅ 클라이언트에서 분석된 데이터를 받았습니다. 중복 OCR을 건너뜁니다.',
       );
-      text = `Client-side analyzed record with ${query.medications.length} meds`;
+      text = `Client-side analyzed record with ${parsedMedications.length} meds`;
     } else if (useInMemoryStore && !visionEnabled) {
       text =
         'OCR 미설정(개발 모드) — 실제 배포에서는 Google Cloud Vision 설정이 필요합니다.';
@@ -209,11 +220,11 @@ export class RecordsController {
 
     // 클라이언트 데이터가 있으면 그것을 우선 사용, 없으면 서버에서 파싱 시도
     const finalMeds =
-      query.medications && query.medications.length > 0
-        ? query.medications.map((m) => ({
+      parsedMedications && parsedMedications.length > 0
+        ? parsedMedications.map((m: any) => ({
             nameRaw: m.name,
-            dose: m.dosage,
-            frequency: m.frequency,
+            dose: m.dosage || '',
+            frequency: m.frequency || '',
             confidence: m.confidence ?? null,
           }))
         : parseMedCandidates(text).map((nameRaw) => ({
@@ -224,8 +235,8 @@ export class RecordsController {
           }));
 
     const geminiSummary =
-      query.medications && query.medications.length > 0
-        ? `Analzed ${query.medications.length} meds: ${query.medications.map((m) => m.name).join(', ')}`
+      parsedMedications && parsedMedications.length > 0
+        ? `Analyzed ${parsedMedications.length} meds: ${parsedMedications.map((m: any) => m.name).join(', ')}`
         : await summarizeForClinician(text);
 
     // Service로 위임 (트랜잭션 포함)
