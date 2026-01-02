@@ -1,5 +1,5 @@
 import React, { useMemo, useState, useEffect } from "react";
-import { ArrowLeft, ChevronDown } from "lucide-react";
+import { ArrowLeft, ChevronDown, Check } from "lucide-react";
 import type { QuestionnaireData } from "@/entities/questionnaire/model/types";
 import { getPatientInfo } from "@/shared/api";
 
@@ -111,7 +111,6 @@ export function Questionnaire(props: QuestionnaireProps) {
   );
 
   const current = steps[step];
-  const progress = ((step + 1) / steps.length) * 100;
 
   const handleNext = () => {
     if (step < steps.length - 1) setStep(step + 1);
@@ -168,7 +167,43 @@ export function Questionnaire(props: QuestionnaireProps) {
           <ArrowLeft className="w-5 h-5" />
         </button>
 
-        <div style={{ marginTop: "10px", marginBottom: "10px" }}>
+        {/* Progress Steps */}
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: "6px",
+            marginTop: "10px",
+          }}
+        >
+          {steps.map((_, idx) => {
+            const isCompleted = idx < step;
+            const isCurrent = idx === step;
+            return (
+              <div
+                key={idx}
+                style={{
+                  flex: 1,
+                  height: "6px",
+                  borderRadius: "999px",
+                  background: isCompleted
+                    ? "linear-gradient(90deg, #10B981 0%, #34D399 100%)"
+                    : isCurrent
+                      ? "linear-gradient(90deg, var(--color-accent) 0%, #3B82F6 100%)"
+                      : "#E5E7EB",
+                  transition: "all 0.3s ease",
+                  boxShadow: isCompleted
+                    ? "0 0 8px rgba(16, 185, 129, 0.4)"
+                    : isCurrent
+                      ? "0 0 8px rgba(59, 130, 246, 0.3)"
+                      : "none",
+                }}
+              />
+            );
+          })}
+        </div>
+
+        <div style={{ marginTop: "12px", marginBottom: "6px" }}>
           <p
             style={{
               color: "var(--color-text-secondary)",
@@ -178,28 +213,6 @@ export function Questionnaire(props: QuestionnaireProps) {
           >
             질문 {step + 1} / {steps.length}
           </p>
-        </div>
-
-        {/* Progress Bar */}
-        <div
-          style={{
-            width: "100%",
-            height: "8px",
-            background: "#E5E7EB",
-            borderRadius: "999px",
-            overflow: "hidden",
-          }}
-        >
-          <div
-            style={{
-              height: "100%",
-              background:
-                "linear-gradient(90deg, var(--color-accent) 0%, #2563EB 100%)",
-              width: `${progress}%`,
-              transition: "width 0.3s ease",
-              boxShadow: "0 0 0 1px rgba(37,99,235,0.15) inset",
-            }}
-          />
         </div>
       </div>
 
@@ -391,17 +404,22 @@ export function Questionnaire(props: QuestionnaireProps) {
                           type="button"
                           onClick={() => updateFormData("symptomStart", t)}
                           style={{
-                            padding: "10px 12px",
+                            padding: "10px 14px",
                             borderRadius: 999,
                             border: selected
-                              ? "2px solid var(--color-accent)"
+                              ? "2px solid #2563EB"
                               : "1px solid #E5E7EB",
                             background: selected
-                              ? "var(--color-accent-light)"
+                              ? "linear-gradient(135deg, #2563EB 0%, #3B82F6 100%)"
                               : "white",
-                            fontWeight: 800,
+                            color: selected ? "white" : "inherit",
+                            fontWeight: 700,
                             fontSize: "0.95rem",
                             cursor: "pointer",
+                            transition: "all 0.2s ease",
+                            boxShadow: selected
+                              ? "0 2px 8px rgba(37, 99, 235, 0.3)"
+                              : "none",
                           }}
                         >
                           {t}
@@ -452,10 +470,10 @@ export function Questionnaire(props: QuestionnaireProps) {
                         padding: "16px 16px",
                         borderRadius: 16,
                         border: selected
-                          ? "2px solid var(--color-accent)"
+                          ? "2px solid #2563EB"
                           : "1px solid #E5E7EB",
                         background: selected
-                          ? "var(--color-accent-light)"
+                          ? "linear-gradient(135deg, #EFF6FF 0%, #DBEAFE 100%)"
                           : "white",
                         cursor: "pointer",
                         display: "flex",
@@ -463,23 +481,45 @@ export function Questionnaire(props: QuestionnaireProps) {
                         justifyContent: "space-between",
                         fontSize: "1.0625rem",
                         minHeight: 56,
+                        transition: "all 0.2s ease",
+                        boxShadow: selected
+                          ? "0 4px 12px rgba(37, 99, 235, 0.15)"
+                          : "none",
                       }}
                     >
-                      <span style={{ fontWeight: selected ? 800 : 600 }}>
+                      <span
+                        style={{
+                          fontWeight: selected ? 800 : 600,
+                          color: selected ? "#1E40AF" : "inherit",
+                        }}
+                      >
                         {option}
                       </span>
                       <div
                         style={{
-                          width: 22,
-                          height: 22,
+                          width: 24,
+                          height: 24,
                           borderRadius: 999,
                           border: selected
-                            ? "6px solid var(--color-accent)"
+                            ? "none"
                             : "2px solid #D1D5DB",
-                          background: "white",
+                          background: selected
+                            ? "linear-gradient(135deg, #2563EB 0%, #3B82F6 100%)"
+                            : "white",
                           flexShrink: 0,
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          transition: "all 0.2s ease",
                         }}
-                      />
+                      >
+                        {selected && (
+                          <Check
+                            className="w-4 h-4"
+                            style={{ color: "white", strokeWidth: 3 }}
+                          />
+                        )}
+                      </div>
                     </button>
                   );
                 })}
