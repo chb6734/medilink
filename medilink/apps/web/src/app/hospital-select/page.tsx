@@ -49,7 +49,9 @@ function HospitalSelectContent() {
     | "new"
     | "followup";
   const symptoms = searchParams.get("symptoms") || "";
-  const recordId = searchParams.get("recordId") || "";
+  const rawRecordId = searchParams.get("recordId");
+  // UUID 형식인지 간단히 확인 (빈 문자열, "undefined", "null" 등 제외)
+  const recordId = rawRecordId && /^[0-9a-f-]{36}$/i.test(rawRecordId) ? rawRecordId : "";
 
   const [loading, setLoading] = useState(false);
   const [defaultHospitalName, setDefaultHospitalName] = useState<string>("");

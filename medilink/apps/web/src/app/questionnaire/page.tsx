@@ -36,8 +36,10 @@ function QuestionnaireContent() {
         }
 
         // 3. 이전 처방: 병원 선택 (기본값: 이전 병원)
-        if (visitType === "followup" && recordId) {
-          router.push(`/hospital-select?visitType=followup&recordId=${recordId}`);
+        if (visitType === "followup") {
+          const params = new URLSearchParams({ visitType: "followup" });
+          if (recordId) params.set("recordId", recordId);
+          router.push(`/hospital-select?${params.toString()}`);
           return;
         }
 
