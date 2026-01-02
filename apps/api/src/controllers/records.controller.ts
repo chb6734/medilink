@@ -359,7 +359,7 @@ export class RecordsController {
    *   ]
    * }
    */
-  @Get('/api/records/:id/medication-schedule')
+  @Get(':id/medication-schedule')
   async getMedicationSchedule(@Param('id') recordId: string) {
     // In-memory 모드일 경우 (현재는 DB 모드만 지원)
     if (useInMemoryStore) {
@@ -415,7 +415,7 @@ export class RecordsController {
    *   }
    * }
    */
-  @Get('/api/records/:id/adherence')
+  @Get(':id/adherence')
   async getAdherence(@Param('id') recordId: string) {
     if (useInMemoryStore) {
       throw new ServiceUnavailableException(

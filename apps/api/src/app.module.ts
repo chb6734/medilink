@@ -1,4 +1,4 @@
-import { Module, MiddlewareConsumer, NestModule } from '@nestjs/common';
+import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { ScheduleModule } from '@nestjs/schedule';
 import configuration from './config/configuration';
@@ -12,7 +12,6 @@ import { FacilitiesController } from './controllers/facilities.controller';
 import { IntakeFormsController } from './controllers/intake-forms.controller';
 import { IntakeFormsService } from './modules/intake-forms/intake-forms.service';
 import { DailyCheckScheduler } from './schedulers/daily-check.scheduler';
-import { AuthMiddleware } from './middleware/auth.middleware';
 
 /**
  * AppModule
@@ -55,10 +54,4 @@ import { AuthMiddleware } from './middleware/auth.middleware';
   ],
   providers: [DailyCheckScheduler, IntakeFormsService],
 })
-export class AppModule implements NestModule {
-  configure(consumer: MiddlewareConsumer) {
-    consumer
-      .apply(AuthMiddleware)
-      .forRoutes('api/patients', 'api/records', 'api/intake-forms');
-  }
-}
+export class AppModule {}
