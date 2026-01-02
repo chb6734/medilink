@@ -59,7 +59,7 @@ export function HospitalSearchWithAI({
     };
   }, [symptoms]);
 
-  // 병원 검색
+  // 병원 검색 - 키워드로만 검색 (specialty 자동 필터링 제거)
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
@@ -68,7 +68,6 @@ export function HospitalSearchWithAI({
       try {
         const result = await searchFacilities({
           keyword: keyword.trim() || undefined,
-          specialty: keyword.trim() ? undefined : recommendedSpecialty || undefined,
         });
 
         if (!cancelled) {
@@ -89,7 +88,7 @@ export function HospitalSearchWithAI({
     return () => {
       cancelled = true;
     };
-  }, [keyword, recommendedSpecialty]);
+  }, [keyword]);
 
   return (
     <div>
@@ -114,13 +113,27 @@ export function HospitalSearchWithAI({
       )}
 
       {recommendedSpecialty && !aiLoading && (
-        <div
+        <button
+          type="button"
+          onClick={() => setKeyword(recommendedSpecialty)}
           style={{
+            width: "100%",
             marginBottom: "16px",
             padding: "16px",
             borderRadius: "16px",
             background: "linear-gradient(135deg, #F0F9FF 0%, #E0F2FE 100%)",
             border: "2px solid #7DD3FC",
+            cursor: "pointer",
+            textAlign: "left",
+            transition: "all 0.2s",
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.transform = "translateY(-2px)";
+            e.currentTarget.style.boxShadow = "0 4px 12px rgba(14, 165, 233, 0.2)";
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.transform = "translateY(0)";
+            e.currentTarget.style.boxShadow = "none";
           }}
         >
           <div style={{ display: "flex", alignItems: "flex-start", gap: "12px" }}>
@@ -139,20 +152,23 @@ export function HospitalSearchWithAI({
               <Sparkles className="w-5 h-5" style={{ color: "white" }} />
             </div>
             <div style={{ flex: 1 }}>
-              <p style={{ fontSize: "0.875rem", fontWeight: "700", color: "#0C4A6E", marginBottom: "4px" }}>
-                AI 추천 진료 과목
+              <p style={{ fontSize: "0.75rem", fontWeight: "600", color: "#0C4A6E", marginBottom: "4px" }}>
+                AI 추천 과
               </p>
-              <p style={{ fontSize: "1.125rem", fontWeight: "800", color: "#0369A1", marginBottom: "6px" }}>
+              <p style={{ fontSize: "1.25rem", fontWeight: "800", color: "#0369A1", marginBottom: "6px" }}>
                 {recommendedSpecialty}
               </p>
               {aiReasoning && (
-                <p style={{ fontSize: "0.875rem", color: "#075985", lineHeight: 1.5 }}>
+                <p style={{ fontSize: "0.875rem", color: "#075985", lineHeight: 1.5, marginBottom: "8px" }}>
                   {aiReasoning}
                 </p>
               )}
+              <p style={{ fontSize: "0.75rem", color: "#0EA5E9", fontWeight: "600" }}>
+                탭하여 검색하기
+              </p>
             </div>
           </div>
-        </div>
+        </button>
       )}
 
       {/* 병원 검색창 */}
@@ -169,11 +185,7 @@ export function HospitalSearchWithAI({
         <input
           value={keyword}
           onChange={(e) => setKeyword(e.target.value)}
-          placeholder={
-            recommendedSpecialty
-              ? `${recommendedSpecialty} 병원 검색 (검색 시 전체 병원 검색)`
-              : "병원 또는 의원 검색..."
-          }
+          placeholder="병원 이름 또는 진료과 검색..."
           style={{
             width: "100%",
             padding: "14px 14px 14px 44px",
