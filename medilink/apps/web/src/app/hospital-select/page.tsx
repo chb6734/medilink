@@ -95,10 +95,20 @@ function HospitalSelectContent() {
       const questionnaireData: QuestionnaireData =
         JSON.parse(questionnaireDataStr);
 
+      // 외부 API에서 가져온 병원인 경우 DB에 저장
+      let facilityId = facility.id;
+      if ((facility as any).isExternal) {
+        const savedFacility = await findOrCreateFacility({
+          name: facility.name,
+          type: facility.type,
+        });
+        facilityId = savedFacility.id;
+      }
+
       // 1. IntakeForm 생성
       await createIntakeForm({
         patientId,
-        facilityId: facility.id,
+        facilityId,
         visitType: visitType === "new" ? "new_symptom" : "followup",
         relatedRecordId: recordId || undefined,
         chiefComplaint: questionnaireData.chiefComplaint || "",
@@ -112,7 +122,7 @@ function HospitalSelectContent() {
       // 2. ShareToken 생성
       const { token } = await createShareToken({
         patientId,
-        facilityId: facility.id,
+        facilityId,
       });
 
       // 3. sessionStorage 정리

@@ -11,6 +11,54 @@ import { PrismaService } from '../database/prisma.service';
 import { FacilityType } from '@prisma/client';
 import { VertexAI } from '@google-cloud/vertexai';
 import { z } from 'zod';
+import { XMLParser } from 'fast-xml-parser';
+
+// 진료과목명 -> 건강보험심사평가원 진료과목 코드 매핑
+const SPECIALTY_CODE_MAP: Record<string, string> = {
+  '내과': '01',
+  '신경과': '02',
+  '정신건강의학과': '03',
+  '정신과': '03',
+  '외과': '04',
+  '정형외과': '05',
+  '신경외과': '06',
+  '흉부외과': '07',
+  '성형외과': '08',
+  '마취통증의학과': '09',
+  '산부인과': '10',
+  '소아청소년과': '11',
+  '소아과': '11',
+  '안과': '12',
+  '이비인후과': '13',
+  '피부과': '14',
+  '비뇨의학과': '15',
+  '비뇨기과': '15',
+  '재활의학과': '21',
+  '가정의학과': '23',
+  '응급의학과': '24',
+  '치과': '49',
+};
+
+// 종별코드 -> 한글 라벨 매핑
+const CL_CODE_LABEL: Record<string, string> = {
+  '01': '상급종합병원',
+  '11': '종합병원',
+  '21': '병원',
+  '28': '요양병원',
+  '29': '정신병원',
+  '31': '의원',
+  '41': '치과병원',
+  '51': '치과의원',
+  '61': '조산원',
+  '71': '보건소',
+  '72': '보건지소',
+  '73': '보건진료소',
+  '74': '보건의료원',
+  '75': '보건지소',
+  '81': '약국',
+  '91': '한방병원',
+  '92': '한의원',
+};
 
 /**
  * 병원/의료기관 검색 및 관리 컨트롤러
@@ -86,6 +134,120 @@ export class FacilitiesController {
     @Query('specialty') specialty?: string,
     @Query('type') type?: string,
   ) {
+    const hiraApiKey = process.env.HIRA_API_KEY;
+
+    // 건강보험심사평가원 API 사용 가능한 경우
+    if (hiraApiKey) {
+      try {
+        const result = await this.searchFromHiraApi(
+          hiraApiKey,
+          keyword,
+          specialty,
+        );
+        if (result.facilities.length > 0) {
+          return result;
+        }
+      } catch (error) {
+        console.error('HIRA API error, falling back to DB:', error);
+      }
+    }
+
+    // 외부 API 실패 또는 결과 없음 -> DB 폴백
+    return this.searchFromDatabase(keyword, specialty, type);
+  }
+
+  /**
+   * 건강보험심사평가원 API로 병원 검색
+   */
+  private async searchFromHiraApi(
+    apiKey: string,
+    keyword?: string,
+    specialty?: string,
+  ): Promise<{ facilities: any[]; count: number }> {
+    const baseUrl =
+      'https://apis.data.go.kr/B551182/hospInfoServicev2/getHospBasisList';
+
+    const params = new URLSearchParams({
+      serviceKey: apiKey,
+      numOfRows: '30',
+      pageNo: '1',
+    });
+
+    // 병원명 검색
+    if (keyword && keyword.trim()) {
+      params.set('yadmNm', keyword.trim());
+    }
+
+    // 진료과목 코드 변환
+    if (!keyword && specialty && specialty.trim()) {
+      const specialtyCode = SPECIALTY_CODE_MAP[specialty.trim()];
+      if (specialtyCode) {
+        params.set('dgsbjtCd', specialtyCode);
+      }
+    }
+
+    const url = `${baseUrl}?${params.toString()}`;
+    const response = await fetch(url);
+    const xmlText = await response.text();
+
+    // XML 파싱
+    const parser = new XMLParser({
+      ignoreAttributes: false,
+      attributeNamePrefix: '@_',
+    });
+    const parsed = parser.parse(xmlText);
+
+    // 응답 구조 확인
+    const items = parsed?.response?.body?.items?.item;
+    if (!items) {
+      return { facilities: [], count: 0 };
+    }
+
+    // 단일 항목인 경우 배열로 변환
+    const itemList = Array.isArray(items) ? items : [items];
+
+    // 결과 변환
+    const facilities = itemList.map((item: any) => ({
+      id: item.ykiho || `hira-${item.yadmNm}-${Date.now()}`,
+      name: item.yadmNm || '',
+      type: this.mapClCodeToFacilityType(item.clCd),
+      typeLabel: CL_CODE_LABEL[item.clCd] || '의료기관',
+      specialty: item.dgsbjtCdNm || null,
+      address: item.addr || null,
+      phone: item.telno || null,
+      isExternal: true, // 외부 API 데이터 표시
+    }));
+
+    return {
+      facilities,
+      count: facilities.length,
+    };
+  }
+
+  /**
+   * 종별코드를 FacilityType으로 변환
+   */
+  private mapClCodeToFacilityType(clCd: string): FacilityType {
+    if (['01', '11', '21', '28', '29', '41', '91'].includes(clCd)) {
+      return FacilityType.hospital;
+    }
+    if (['31', '51', '92'].includes(clCd)) {
+      return FacilityType.clinic;
+    }
+    if (clCd === '81') {
+      return FacilityType.pharmacy;
+    }
+    return FacilityType.unknown;
+  }
+
+  /**
+   * 로컬 DB에서 병원 검색 (폴백)
+   */
+  private async searchFromDatabase(
+    keyword?: string,
+    specialty?: string,
+    type?: string,
+  ): Promise<{ facilities: any[]; count: number }> {
     // 검색 조건 구성
     const where: any = {};
 
