@@ -13,12 +13,29 @@ interface QuestionnaireProps {
 
 export function Questionnaire(props: QuestionnaireProps) {
   const { initialData = {}, onBack, onComplete } = props;
-  // Start at step 0 (no hospital selection step)
-  const [step, setStep] = useState(0);
-  const [formData, setFormData] =
-    useState<Partial<QuestionnaireData>>(initialData);
+
+  // sessionStorage에서 이전 데이터 복원 (병원 선택에서 뒤로가기 시)
+  const getInitialState = () => {
+    if (typeof window === "undefined") return { step: 0, data: initialData };
+
+    const savedData = sessionStorage.getItem("questionnaireData");
+    if (savedData) {
+      try {
+        const parsed = JSON.parse(savedData);
+        // 데이터가 있으면 마지막 step으로 이동 (step은 6개이므로 5)
+        return { step: 5, data: parsed };
+      } catch {
+        return { step: 0, data: initialData };
+      }
+    }
+    return { step: 0, data: initialData };
+  };
+
+  const initial = getInitialState();
+  const [step, setStep] = useState(initial.step);
+  const [formData, setFormData] = useState<Partial<QuestionnaireData>>(initial.data);
   const [symptomDetail, setSymptomDetail] = useState(
-    formData.symptomDetail ?? ""
+    initial.data.symptomDetail ?? ""
   );
 
   // 환자 정보 (알레르기) 자동 불러오기
