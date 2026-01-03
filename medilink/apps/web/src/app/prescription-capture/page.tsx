@@ -123,6 +123,7 @@ function PrescriptionCaptureContent() {
             fontSize: "1.75rem",
             fontWeight: "800",
             marginBottom: "8px",
+            color: "white",
           }}
         >
           약봉지/처방전 촬영

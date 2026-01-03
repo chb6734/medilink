@@ -234,7 +234,7 @@ export function Questionnaire(props: QuestionnaireProps) {
                   fontSize: "1.75rem",
                   fontWeight: 800,
                   letterSpacing: "-0.02em",
-                  color: "#fff",
+                  color: "#222222",
                 }}
               >
                 방문 사유

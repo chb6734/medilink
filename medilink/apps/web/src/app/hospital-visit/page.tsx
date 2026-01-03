@@ -90,7 +90,7 @@ export default function HospitalVisitPage() {
         }}
       >
         <button
-          onClick={() => router.back()}
+          onClick={() => router.push("/")}
           style={{
             background: "rgba(255,255,255,0.2)",
             border: "none",
@@ -106,7 +106,7 @@ export default function HospitalVisitPage() {
         >
           <ArrowLeft className="w-5 h-5" />
         </button>
-        <h1 style={{ fontSize: "1.75rem", fontWeight: "800", marginBottom: "8px" }}>
+        <h1 style={{ fontSize: "1.75rem", fontWeight: "800", marginBottom: "8px", color: "white" }}>
           병원 방문
         </h1>
         <p style={{ opacity: 0.9, fontSize: "0.9375rem" }}>

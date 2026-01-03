@@ -20,7 +20,7 @@ function QuestionnaireContent() {
       initialData={{}}
       visitType={visitType as "new" | "followup"}
       relatedRecordId={recordId}
-      onBack={() => router.push("/hospital-visit")}
+      onBack={() => router.replace("/hospital-visit")}
       onComplete={async (data: QuestionnaireData) => {
         // 1. sessionStorage에 문진표 데이터 저장
         sessionStorage.setItem("questionnaireData", JSON.stringify(data));

@@ -175,6 +175,7 @@ function HospitalSelectContent() {
             fontSize: "1.75rem",
             fontWeight: "800",
             marginBottom: "8px",
+            color: "white",
           }}
         >
           병원 선택

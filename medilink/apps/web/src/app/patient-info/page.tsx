@@ -127,7 +127,7 @@ export default function PatientInfoPage() {
         </button>
         <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "8px" }}>
           <User className="w-8 h-8" />
-          <h1 style={{ fontSize: "1.75rem", fontWeight: "800" }}>
+          <h1 style={{ fontSize: "1.75rem", fontWeight: "800", color: "white" }}>
             환자 정보
           </h1>
         </div>
