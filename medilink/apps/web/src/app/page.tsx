@@ -52,6 +52,7 @@ export default function HomePage() {
         onQuestionnaire={() => router.push("/hospital-visit")}
         onHistory={() => router.push("/medication-history")}
         onDoctorPreview={() => router.push("/doctor-preview")}
+        onPatientInfo={() => router.push("/patient-info")}
       />
     </div>
   );

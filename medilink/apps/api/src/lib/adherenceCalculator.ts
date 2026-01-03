@@ -25,17 +25,27 @@ export interface MedicationCheckData {
  * 복약 순응도 계산
  *
  * @param checks - 복약 체크 기록 배열
+ * @param untilNow - true일 경우 현재 시간까지의 체크만 계산 (기본값: true)
  * @returns 순응도 퍼센트 (0-100), 기록이 없으면 null
  */
 export function calculateAdherence(
   checks: MedicationCheckData[],
+  untilNow: boolean = true,
 ): number | null {
-  if (checks.length === 0) {
+  const nowTime = Date.now();
+
+  // 현재 시간까지의 체크만 필터링 (옵션에 따라)
+  // scheduledAt이 문자열일 수 있으므로 명시적으로 Date로 변환하여 비교
+  const filteredChecks = untilNow
+    ? checks.filter((c) => new Date(c.scheduledAt).getTime() <= nowTime)
+    : checks;
+
+  if (filteredChecks.length === 0) {
     return null; // 기록이 없으면 계산 불가
   }
 
-  const totalScheduled = checks.length;
-  const totalTaken = checks.filter((c) => c.isTaken).length;
+  const totalScheduled = filteredChecks.length;
+  const totalTaken = filteredChecks.filter((c) => c.isTaken).length;
 
   const adherencePercent = (totalTaken / totalScheduled) * 100;
 
@@ -54,16 +64,17 @@ export function calculateAdherenceByPeriod(
   checks: MedicationCheckData[],
   days: number = 7,
 ): number | null {
-  const now = new Date();
-  const cutoffDate = new Date(now);
-  cutoffDate.setDate(cutoffDate.getDate() - days);
+  const nowTime = Date.now();
+  const cutoffTime = nowTime - days * 24 * 60 * 60 * 1000;
 
-  // 최근 N일간의 기록만 필터링
-  const recentChecks = checks.filter(
-    (c) => c.scheduledAt >= cutoffDate && c.scheduledAt <= now,
-  );
+  // 최근 N일간 + 현재 시간까지의 기록만 필터링
+  const recentChecks = checks.filter((c) => {
+    const scheduledTime = new Date(c.scheduledAt).getTime();
+    return scheduledTime >= cutoffTime && scheduledTime <= nowTime;
+  });
 
-  return calculateAdherence(recentChecks);
+  // 이미 필터링된 데이터이므로 untilNow=false로 호출
+  return calculateAdherence(recentChecks, false);
 }
 
 /**
@@ -113,18 +124,28 @@ export function getAdherenceGrade(adherencePercent: number): {
  * 일별 복약 순응도 계산
  *
  * @param checks - 복약 체크 기록 배열
+ * @param untilNow - true일 경우 현재 시간까지의 체크만 계산 (기본값: true)
  * @returns 날짜별 순응도 맵 (YYYY-MM-DD → 퍼센트)
  */
 export function calculateDailyAdherence(
   checks: MedicationCheckData[],
+  untilNow: boolean = true,
 ): Map<string, number> {
+  const nowTime = Date.now();
+
+  // 현재 시간까지의 체크만 필터링 (옵션에 따라)
+  // scheduledAt이 문자열일 수 있으므로 명시적으로 Date로 변환하여 비교
+  const filteredChecks = untilNow
+    ? checks.filter((c) => new Date(c.scheduledAt).getTime() <= nowTime)
+    : checks;
+
   const dailyMap = new Map<
     string,
     { scheduled: number; taken: number }
   >();
 
-  for (const check of checks) {
-    const dateKey = check.scheduledAt.toISOString().slice(0, 10);
+  for (const check of filteredChecks) {
+    const dateKey = new Date(check.scheduledAt).toISOString().slice(0, 10);
 
     if (!dailyMap.has(dateKey)) {
       dailyMap.set(dateKey, { scheduled: 0, taken: 0 });

@@ -7,9 +7,10 @@ import { TrendingUp, Calendar, Award, AlertCircle } from "lucide-react";
 
 export type AdherenceChartProps = {
   recordId: string;
+  refreshKey?: number; // 이 값이 변경되면 데이터를 다시 가져옴
 };
 
-export function AdherenceChart({ recordId }: AdherenceChartProps) {
+export function AdherenceChart({ recordId, refreshKey = 0 }: AdherenceChartProps) {
   const [loading, setLoading] = useState(true);
   const [adherenceData, setAdherenceData] = useState<AdherenceResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -19,7 +20,10 @@ export function AdherenceChart({ recordId }: AdherenceChartProps) {
 
     (async () => {
       try {
-        setLoading(true);
+        // refreshKey가 변경되어도 로딩 상태는 기존 데이터가 있으면 표시하지 않음 (깜빡임 방지)
+        if (!adherenceData) {
+          setLoading(true);
+        }
         const data = await getAdherence(recordId);
         if (!cancelled) {
           setAdherenceData(data);
@@ -39,7 +43,7 @@ export function AdherenceChart({ recordId }: AdherenceChartProps) {
     return () => {
       cancelled = true;
     };
-  }, [recordId]);
+  }, [recordId, refreshKey]);
 
   if (loading) {
     return (

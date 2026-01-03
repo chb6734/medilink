@@ -3,7 +3,7 @@
 import { DoctorView } from "@/widgets/doctor/DoctorView";
 import type { PrescriptionRecord } from "@/entities/record/model/types";
 import type { QuestionnaireData } from "@/entities/questionnaire/model/types";
-import { getDoctorSummary, authMe } from "@/shared/api";
+import { getDoctorSummary, authMe, getPatientInfo } from "@/shared/api";
 import { getOrCreatePatientId } from "@/entities/patient/lib/patientId";
 import { useEffect, useState } from "react";
 
@@ -38,6 +38,7 @@ export default function DoctorPreviewPage() {
     bloodType?: string;
     height?: number;
     weight?: number;
+    allergies?: string;
   } | null>(null);
   const [aiAnalysis, setAiAnalysis] = useState<string | null>(null);
   const [medicationHistory, setMedicationHistory] = useState<
@@ -53,9 +54,10 @@ export default function DoctorPreviewPage() {
     (async () => {
       try {
         const patientId = getOrCreatePatientId();
-        const [userData, summaryData] = await Promise.all([
+        const [userData, summaryData, patientInfoData] = await Promise.all([
           authMe().catch(() => ({ authEnabled: false, user: null })),
           getDoctorSummary({ patientId }).catch(() => null),
+          getPatientInfo().catch(() => null),
         ]);
 
         if (cancelled) return;
@@ -67,9 +69,16 @@ export default function DoctorPreviewPage() {
           "환자";
         const userPhone =
           (userData.user as any)?.phoneE164?.replace(/^\+82/, "0") || "";
+
+        // 환자 정보 설정 (기본 정보 + 추가 정보)
         setPatient({
           name: userName,
           phone: userPhone,
+          age: patientInfoData?.age ?? undefined,
+          bloodType: patientInfoData?.bloodType ?? undefined,
+          height: patientInfoData?.heightCm ?? undefined,
+          weight: patientInfoData?.weightKg ?? undefined,
+          allergies: patientInfoData?.allergies ?? undefined,
         });
 
         if (summaryData) {

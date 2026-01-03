@@ -18,6 +18,7 @@ import { prisma } from '@medilink/db';
 import { useInMemoryStore } from '../lib/config';
 import { isAuthEnabled } from '../lib/auth';
 import { randomToken, sha256Base64Url } from '../lib/crypto';
+import { verifyToken } from '../lib/jwt';
 import {
   memCreateShare,
   memGetRecords,
@@ -27,7 +28,16 @@ import {
 
 function requireAuth(req: Request) {
   if (!isAuthEnabled()) return;
-  if (!req.session?.user) throw new UnauthorizedException('unauthorized');
+
+  const token = req.cookies?.['auth_token'];
+  if (!token) {
+    throw new UnauthorizedException('unauthorized');
+  }
+
+  const payload = verifyToken(token);
+  if (!payload) {
+    throw new UnauthorizedException('unauthorized');
+  }
 }
 
 function ensureDbConfigured() {

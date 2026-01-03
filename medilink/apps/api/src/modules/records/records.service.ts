@@ -928,30 +928,105 @@ export class RecordsService {
       dispensedAt?: string;
       daysSupply?: number;
     },
-  ): Promise<{ id: string; updated: boolean }> {
+  ): Promise<{ id: string; updated: boolean; checksCreated?: number }> {
     this.logger.log(`Updating prescription record ${recordId}`);
 
     if (useInMemoryStore) {
       return { id: recordId, updated: true };
     }
 
-    await this.prisma.prescriptionRecord.update({
-      where: { id: recordId },
-      data: {
-        chiefComplaint: data.chiefComplaint,
-        doctorDiagnosis: data.doctorDiagnosis,
-        noteDoctorSaid: data.noteDoctorSaid,
-        prescribedAt: data.prescribedAt
-          ? new Date(data.prescribedAt)
-          : undefined,
-        dispensedAt: data.dispensedAt
-          ? new Date(data.dispensedAt)
-          : undefined,
-        daysSupply: data.daysSupply,
-      },
-    });
+    // 트랜잭션으로 처리
+    return this.prisma.$transaction(async (tx) => {
+      // 1. 기존 처방 정보 조회
+      const existingRecord = await tx.prescriptionRecord.findUnique({
+        where: { id: recordId },
+        include: { medItems: true },
+      });
 
-    return { id: recordId, updated: true };
+      if (!existingRecord) {
+        throw new BadRequestException('Record not found');
+      }
+
+      // 2. 처방 정보 업데이트
+      await tx.prescriptionRecord.update({
+        where: { id: recordId },
+        data: {
+          chiefComplaint: data.chiefComplaint,
+          doctorDiagnosis: data.doctorDiagnosis,
+          noteDoctorSaid: data.noteDoctorSaid,
+          prescribedAt: data.prescribedAt
+            ? new Date(data.prescribedAt)
+            : undefined,
+          dispensedAt: data.dispensedAt
+            ? new Date(data.dispensedAt)
+            : undefined,
+          daysSupply: data.daysSupply,
+        },
+      });
+
+      // 3. 조제일과 복용일수가 새로 추가되면 복약 체크 생성
+      const newDispensedAt = data.dispensedAt;
+      const newDaysSupply = data.daysSupply;
+      const hadDispensedAt = !!existingRecord.dispensedAt;
+      const hadDaysSupply = !!existingRecord.daysSupply;
+
+      let checksCreated = 0;
+
+      // 기존에 없었던 조제일/복용일수가 추가된 경우에만 복약 체크 생성
+      if (newDispensedAt && newDaysSupply && newDaysSupply > 0) {
+        // 기존 복약 체크 삭제 (재생성을 위해)
+        await tx.medicationCheck.deleteMany({
+          where: { prescriptionRecordId: recordId },
+        });
+
+        // 약물의 빈도 파싱
+        const frequencies = existingRecord.medItems
+          .map((m) => parseFrequency(m.frequency || null))
+          .filter((f): f is number => f !== null);
+
+        const maxFrequency = frequencies.length > 0 ? Math.max(...frequencies) : 1;
+        const times = getDefaultTimesForFrequency(maxFrequency);
+
+        this.logger.log(
+          `Creating medication checks: ${newDaysSupply} days × ${maxFrequency} times = ${newDaysSupply * maxFrequency} checks`,
+        );
+
+        const medicationChecks: Array<{
+          prescriptionRecordId: string;
+          scheduledAt: Date;
+          dayNumber: number;
+          doseNumber: number;
+        }> = [];
+
+        const dispensedDate = new Date(newDispensedAt);
+
+        for (let day = 0; day < newDaysSupply; day++) {
+          for (let dose = 0; dose < maxFrequency; dose++) {
+            const scheduledDate = new Date(dispensedDate);
+            scheduledDate.setDate(scheduledDate.getDate() + day);
+
+            const [hours, minutes] = times[dose].split(':').map(Number);
+            scheduledDate.setHours(hours, minutes, 0, 0);
+
+            medicationChecks.push({
+              prescriptionRecordId: recordId,
+              scheduledAt: scheduledDate,
+              dayNumber: day + 1,
+              doseNumber: dose + 1,
+            });
+          }
+        }
+
+        await tx.medicationCheck.createMany({
+          data: medicationChecks,
+        });
+
+        checksCreated = medicationChecks.length;
+        this.logger.log(`Created ${checksCreated} medication check records`);
+      }
+
+      return { id: recordId, updated: true, checksCreated };
+    });
   }
 
   /**
@@ -1083,6 +1158,7 @@ export class RecordsService {
     const checks = await this.prisma.medicationCheck.findMany({
       where: { prescriptionRecordId: recordId },
       select: {
+        id: true,
         scheduledAt: true,
         isTaken: true,
         takenAt: true,

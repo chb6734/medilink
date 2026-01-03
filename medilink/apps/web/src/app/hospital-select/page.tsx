@@ -9,6 +9,7 @@ import {
   createShareToken,
   getRecords,
   findOrCreateFacility,
+  authMe,
 } from "@/shared/api";
 import { getOrCreatePatientId } from "@/entities/patient/lib/patientId";
 import type { Facility } from "@/shared/api/medilink";
@@ -54,7 +55,34 @@ function HospitalSelectContent() {
   const recordId = rawRecordId && /^[0-9a-f-]{36}$/i.test(rawRecordId) ? rawRecordId : "";
 
   const [loading, setLoading] = useState(false);
+  const [authChecking, setAuthChecking] = useState(true);
   const [defaultHospitalName, setDefaultHospitalName] = useState<string>("");
+
+  // 인증 체크
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const me = await authMe();
+        if (cancelled) return;
+        if (!me.user) {
+          // 로그인 필요 - 현재 URL로 돌아올 수 있도록 returnTo 설정
+          const currentUrl = `/hospital-select?visitType=${visitType}&symptoms=${encodeURIComponent(symptoms)}${recordId ? `&recordId=${recordId}` : ""}`;
+          router.push(`/login?returnTo=${encodeURIComponent(currentUrl)}`);
+          return;
+        }
+        setAuthChecking(false);
+      } catch (e) {
+        if (!cancelled) {
+          console.error("Auth check failed:", e);
+          router.push("/login?returnTo=/hospital-visit");
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [router, visitType, symptoms, recordId]);
 
   // 이전 처방인 경우 이전 병원 가져오기
   useEffect(() => {
@@ -137,6 +165,18 @@ function HospitalSelectContent() {
       setLoading(false);
     }
   };
+
+  // 인증 체크 중
+  if (authChecking) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-muted-foreground">인증 확인 중...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div

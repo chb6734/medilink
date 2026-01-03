@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { getPatientInfo, updatePatientInfo, authMe } from "@/shared/api";
 import type { PatientInfo } from "@/shared/api/medilink";
 import { ArrowLeft, User, Calendar, Droplet, Ruler, Weight, AlertCircle, Phone } from "lucide-react";
+import { AllergySelector } from "@/features/allergy";
 
 export default function PatientInfoPage() {
   const router = useRouter();
@@ -17,7 +18,8 @@ export default function PatientInfoPage() {
   const [bloodType, setBloodType] = useState("");
   const [heightCm, setHeightCm] = useState("");
   const [weightKg, setWeightKg] = useState("");
-  const [allergies, setAllergies] = useState("");
+  const [selectedAllergies, setSelectedAllergies] = useState<string[]>([]);
+  const [customAllergies, setCustomAllergies] = useState<string[]>([]);
   const [emergencyContact, setEmergencyContact] = useState("");
 
   useEffect(() => {
@@ -45,7 +47,14 @@ export default function PatientInfoPage() {
         setBloodType(info.bloodType || "");
         setHeightCm(info.heightCm?.toString() || "");
         setWeightKg(info.weightKg?.toString() || "");
-        setAllergies(info.allergies || "");
+        // 알러지 문자열을 배열로 파싱
+        if (info.allergies && info.allergies !== "없음") {
+          const allergyList = info.allergies
+            .split(/[,、，\n]/)
+            .map((a) => a.trim())
+            .filter((a) => a.length > 0);
+          setSelectedAllergies(allergyList);
+        }
         setEmergencyContact(info.emergencyContact || "");
       } catch (error) {
         console.error("Failed to load patient info:", error);
@@ -65,12 +74,16 @@ export default function PatientInfoPage() {
   const handleSave = async () => {
     setSaving(true);
     try {
+      // 알러지 배열을 문자열로 변환
+      const allergiesString =
+        selectedAllergies.length > 0 ? selectedAllergies.join(", ") : "없음";
+
       const updatedInfo = await updatePatientInfo({
         birthDate: birthDate || undefined,
         bloodType: bloodType || undefined,
         heightCm: heightCm ? parseFloat(heightCm) : undefined,
         weightKg: weightKg ? parseFloat(weightKg) : undefined,
-        allergies: allergies || undefined,
+        allergies: allergiesString,
         emergencyContact: emergencyContact || undefined,
       });
 
@@ -304,32 +317,19 @@ export default function PatientInfoPage() {
               fontSize: "0.9375rem",
               fontWeight: "700",
               color: "var(--color-text-secondary)",
-              marginBottom: "8px",
+              marginBottom: "12px",
             }}
           >
             <AlertCircle className="w-5 h-5" />
             알레르기 정보
           </label>
-          <textarea
-            value={allergies}
-            onChange={(e) => setAllergies(e.target.value)}
-            placeholder="예: 페니실린, 땅콩, 고양이 털 등 (없으면 '없음' 입력)"
-            rows={4}
-            style={{
-              width: "100%",
-              padding: "14px",
-              borderRadius: "14px",
-              border: "2px solid #D1D5DB",
-              fontSize: "1.0625rem",
-              background: "white",
-              outline: "none",
-              resize: "none",
-              lineHeight: 1.5,
-            }}
-            onFocus={(e) => (e.currentTarget.style.borderColor = "var(--color-accent)")}
-            onBlur={(e) => (e.currentTarget.style.borderColor = "#D1D5DB")}
+          <AllergySelector
+            value={selectedAllergies}
+            onChange={setSelectedAllergies}
+            customAllergies={customAllergies}
+            onCustomAllergiesChange={setCustomAllergies}
           />
-          <p style={{ marginTop: "8px", fontSize: "0.875rem", color: "var(--color-text-tertiary)" }}>
+          <p style={{ marginTop: "12px", fontSize: "0.875rem", color: "var(--color-text-tertiary)" }}>
             문진표 작성 시 자동으로 불러옵니다
           </p>
         </div>

@@ -455,3 +455,57 @@ export async function findOrCreateFacility(params: {
     body: JSON.stringify(params),
   });
 }
+
+// ============= 처방 기록 삭제 API =============
+
+export async function deleteRecord(recordId: string): Promise<{ id: string; deleted: boolean }> {
+  return await fetchJson<{ id: string; deleted: boolean }>(`/api/records/${recordId}`, {
+    method: "DELETE",
+  });
+}
+
+// ============= 처방 기록 수정 API =============
+
+export async function updatePrescriptionRecord(params: {
+  recordId: string;
+  facilityName?: string;
+  chiefComplaint?: string;
+  doctorDiagnosis?: string;
+  noteDoctorSaid?: string;
+  prescribedAt?: string;
+  dispensedAt?: string;
+  daysSupply?: number;
+}): Promise<{ id: string; updated: boolean; checksCreated?: number }> {
+  const { recordId, ...data } = params;
+  return await fetchJson<{ id: string; updated: boolean; checksCreated?: number }>(
+    `/api/records/${recordId}`,
+    {
+      method: "PUT",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(data),
+    }
+  );
+}
+
+// ============= 개별 처방 기록 조회 API =============
+
+export async function getRecord(recordId: string): Promise<{
+  id: string;
+  prescriptionDate: string;
+  hospitalName?: string;
+  pharmacyName?: string;
+  chiefComplaint?: string;
+  diagnosis?: string;
+  dispensedAt?: string;
+  daysSupply?: number;
+  medications: Array<{
+    id: string;
+    name: string;
+    dosage: string;
+    frequency: string;
+  }>;
+}> {
+  return await fetchJson(`/api/records/${recordId}`, {
+    method: "GET",
+  });
+}

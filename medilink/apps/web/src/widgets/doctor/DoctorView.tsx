@@ -31,11 +31,14 @@ export type DoctorPatient = {
   bloodType?: string;
   height?: number;
   weight?: number;
+  allergies?: string;
 };
 
 export type MedicationHistoryItem = {
   date: string;
   taken: boolean;
+  takenCount?: number;    // 복용한 횟수
+  totalCount?: number;    // 하루 총 복용 횟수
   symptomLevel: number;
   notes: string | null;
 };
@@ -81,30 +84,42 @@ export function DoctorView({
 }: DoctorViewProps) {
   const p = patient ?? DEFAULT_PATIENT;
 
-  // Convert medicationHistory to tracking format with date objects
-  const medicationTracking = medicationHistory.map((item) => {
-    const date = new Date(item.date);
-    return {
-      date,
-      dateStr: date.toLocaleDateString("ko-KR", {
-        month: "short",
-        day: "numeric",
-      }),
-      dayOfWeek: date.toLocaleDateString("ko-KR", { weekday: "short" }),
-      taken: item.taken,
-      symptomLevel: item.symptomLevel,
-      notes: item.notes,
-    };
-  });
+  // 오늘 날짜 (시간 제거)
+  const today = new Date();
+  today.setHours(23, 59, 59, 999);
 
-  const adherenceRate =
-    medicationTracking.length > 0
-      ? Math.round(
-          (medicationTracking.filter((d) => d.taken).length /
-            medicationTracking.length) *
-            100,
-        )
-      : 0;
+  // Convert medicationHistory to tracking format with date objects
+  // 미래 날짜는 필터링
+  const medicationTracking = medicationHistory
+    .filter((item) => new Date(item.date) <= today)
+    .map((item) => {
+      const date = new Date(item.date);
+      const takenCount = item.takenCount ?? (item.taken ? 1 : 0);
+      const totalCount = item.totalCount ?? 1;
+      const isFullyTaken = takenCount >= totalCount;
+      const isPartiallyTaken = takenCount > 0 && takenCount < totalCount;
+
+      return {
+        date,
+        dateStr: date.toLocaleDateString("ko-KR", {
+          month: "short",
+          day: "numeric",
+        }),
+        dayOfWeek: date.toLocaleDateString("ko-KR", { weekday: "short" }),
+        taken: item.taken,
+        takenCount,
+        totalCount,
+        isFullyTaken,
+        isPartiallyTaken,
+        symptomLevel: item.symptomLevel,
+        notes: item.notes,
+      };
+    });
+
+  // 순응도 계산: (복용한 횟수 / 총 복용해야 할 횟수) * 100
+  const totalDoses = medicationTracking.reduce((sum, d) => sum + d.totalCount, 0);
+  const takenDoses = medicationTracking.reduce((sum, d) => sum + d.takenCount, 0);
+  const adherenceRate = totalDoses > 0 ? Math.round((takenDoses / totalDoses) * 100) : 0;
 
   return (
     <div className="min-h-screen" style={{ background: "#F8FAFC" }}>
@@ -461,6 +476,32 @@ export function DoctorView({
               </div>
             </div>
           </div>
+
+          {/* Allergies Alert */}
+          {p.allergies && p.allergies !== "없음" && (
+            <div
+              style={{
+                marginTop: "16px",
+                padding: "14px 16px",
+                background: "rgba(239, 68, 68, 0.2)",
+                borderRadius: "14px",
+                border: "1px solid rgba(239, 68, 68, 0.3)",
+                display: "flex",
+                alignItems: "flex-start",
+                gap: "12px",
+              }}
+            >
+              <AlertCircle className="w-5 h-5" style={{ color: "#FEE2E2", flexShrink: 0, marginTop: "2px" }} />
+              <div>
+                <div style={{ fontSize: "0.8125rem", fontWeight: "700", color: "#FEE2E2", marginBottom: "4px" }}>
+                  알러지 주의
+                </div>
+                <div style={{ fontSize: "0.9375rem", color: "white", fontWeight: "600", lineHeight: "1.5" }}>
+                  {p.allergies}
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
@@ -612,181 +653,53 @@ export function DoctorView({
             </div>
           )}
 
-          {/* Current Medications - AI Analyzed */}
-          <div
-            style={{
-              background: "white",
-              padding: "24px",
-              borderRadius: "16px",
-              border: "1px solid #E2E8F0",
-              boxShadow: "0 1px 3px rgba(0,0,0,0.05)",
-            }}
-          >
+          {/* AI Analysis - Standalone Section */}
+          {aiAnalysis && (
             <div
               style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-                marginBottom: "20px",
+                background: "white",
+                padding: "24px",
+                borderRadius: "16px",
+                border: "2px solid #0EA5E9",
+                boxShadow: "0 1px 3px rgba(0,0,0,0.05)",
               }}
             >
-              <div
-                style={{ display: "flex", alignItems: "center", gap: "10px" }}
-              >
-                <Pill className="w-5 h-5" style={{ color: "#285BAA" }} />
-                <h2
-                  style={{
-                    fontSize: "1.125rem",
-                    fontWeight: "700",
-                    color: "#0F172A",
-                    marginBottom: 0,
-                  }}
-                >
-                  현재 복용 중인 약
-                </h2>
-              </div>
               <div
                 style={{
                   display: "flex",
                   alignItems: "center",
-                  gap: "6px",
-                  background:
-                    "linear-gradient(135deg, #A78BFA 0%, #8B5CF6 100%)",
-                  padding: "6px 12px",
-                  borderRadius: "8px",
-                  fontSize: "0.75rem",
-                  fontWeight: "600",
-                  color: "white",
+                  gap: "10px",
+                  marginBottom: "16px",
                 }}
               >
-                <Sparkles className="w-3 h-3" />
-                AI 분석
-              </div>
-            </div>
-
-            <div className="space-y-3">
-              {currentMedications.length > 0 ? (
-                currentMedications.map((med, idx) => (
-                  <div
-                    key={med.id}
-                    style={{
-                      padding: "16px",
-                      background:
-                        idx === 0
-                          ? "linear-gradient(135deg, #EEF2FF 0%, #E0E7FF 100%)"
-                          : "#F8FAFC",
-                      borderRadius: "12px",
-                      border: "1px solid #CBD5E1",
-                      position: "relative",
-                    }}
-                  >
-                    {med.confidence && med.confidence >= 90 && (
-                      <div
-                        style={{
-                          position: "absolute",
-                          top: "12px",
-                          right: "12px",
-                          background:
-                            "linear-gradient(135deg, #10B981 0%, #059669 100%)",
-                          color: "white",
-                          padding: "4px 10px",
-                          borderRadius: "6px",
-                          fontSize: "0.6875rem",
-                          fontWeight: "700",
-                          display: "flex",
-                          alignItems: "center",
-                          gap: "4px",
-                        }}
-                      >
-                        <CheckCircle className="w-3 h-3" />
-                        {med.confidence}%
-                      </div>
-                    )}
-                    <p
-                      style={{
-                        fontWeight: "700",
-                        fontSize: "1rem",
-                        color: "#0F172A",
-                        marginBottom: "8px",
-                        paddingRight: med.confidence ? "80px" : "0",
-                      }}
-                    >
-                      {med.name}
-                    </p>
-                    <div
-                      style={{
-                        fontSize: "0.875rem",
-                        color: "#475569",
-                        marginBottom: "6px",
-                      }}
-                    >
-                      <span style={{ fontWeight: "600" }}>{med.dosage}</span> ·{" "}
-                      {med.frequency}
-                    </div>
-                    <div style={{ fontSize: "0.8125rem", color: "#64748B" }}>
-                      처방: {med.prescribedBy || "—"}
-                    </div>
-                  </div>
-                ))
-              ) : (
-                <div
+                <Sparkles className="w-5 h-5" style={{ color: "#0EA5E9" }} />
+                <h2
                   style={{
-                    padding: "16px",
-                    textAlign: "center",
-                    color: "#64748B",
-                    fontSize: "0.875rem",
+                    fontSize: "1.125rem",
+                    fontWeight: "700",
+                    color: "#0C4A6E",
+                    marginBottom: 0,
                   }}
                 >
-                  현재 복용 중인 약이 없습니다.
-                </div>
-              )}
-            </div>
-
-            {/* AI Analysis */}
-            {aiAnalysis && (
+                  AI 환자 상태 분석
+                </h2>
+              </div>
               <div
                 style={{
-                  marginTop: "24px",
                   padding: "20px",
                   background:
                     "linear-gradient(135deg, #F0F9FF 0%, #E0F2FE 100%)",
                   borderRadius: "12px",
-                  border: "2px solid #0EA5E9",
+                  fontSize: "0.9375rem",
+                  color: "#075985",
+                  lineHeight: "1.8",
+                  whiteSpace: "pre-wrap",
                 }}
               >
-                <div
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "10px",
-                    marginBottom: "16px",
-                  }}
-                >
-                  <Sparkles className="w-5 h-5" style={{ color: "#0EA5E9" }} />
-                  <h3
-                    style={{
-                      fontSize: "1rem",
-                      fontWeight: "700",
-                      color: "#0C4A6E",
-                      marginBottom: 0,
-                    }}
-                  >
-                    AI 환자 상태 분석
-                  </h3>
-                </div>
-                <div
-                  style={{
-                    fontSize: "0.9375rem",
-                    color: "#075985",
-                    lineHeight: "1.8",
-                    whiteSpace: "pre-wrap",
-                  }}
-                >
-                  {aiAnalysis}
-                </div>
+                {aiAnalysis}
               </div>
-            )}
-          </div>
+            </div>
+          )}
 
           {/* Medication Tracking Timeline */}
           <div
@@ -865,24 +778,33 @@ export function DoctorView({
                       width: "100%",
                       aspectRatio: "1",
                       borderRadius: "10px",
-                      background: day.taken
+                      background: day.isFullyTaken
                         ? "linear-gradient(135deg, #10B981 0%, #059669 100%)"
+                        : day.isPartiallyTaken
+                        ? "linear-gradient(135deg, #F59E0B 0%, #D97706 100%)"
                         : "#F1F5F9",
                       display: "flex",
+                      flexDirection: "column",
                       alignItems: "center",
                       justifyContent: "center",
                       marginBottom: "6px",
-                      boxShadow: day.taken
+                      boxShadow: day.isFullyTaken
                         ? "0 2px 8px rgba(16, 185, 129, 0.3)"
+                        : day.isPartiallyTaken
+                        ? "0 2px 8px rgba(245, 158, 11, 0.3)"
                         : "none",
                       position: "relative",
                     }}
                   >
-                    {day.taken ? (
+                    {day.isFullyTaken ? (
                       <CheckCircle
                         className="w-5 h-5"
                         style={{ color: "white" }}
                       />
+                    ) : day.isPartiallyTaken ? (
+                      <span style={{ color: "white", fontSize: "0.75rem", fontWeight: "700" }}>
+                        {day.takenCount}/{day.totalCount}
+                      </span>
                     ) : (
                       <XCircle
                         className="w-5 h-5"
@@ -936,9 +858,13 @@ export function DoctorView({
                       key={idx}
                       style={{
                         padding: "14px 16px",
-                        background: day.taken ? "#F0FDF4" : "#FEF2F2",
+                        background: day.isFullyTaken
+                          ? "#F0FDF4"
+                          : day.isPartiallyTaken
+                          ? "#FFFBEB"
+                          : "#FEF2F2",
                         borderRadius: "10px",
-                        border: `1px solid ${day.taken ? "#BBF7D0" : "#FECACA"}`,
+                        border: `1px solid ${day.isFullyTaken ? "#BBF7D0" : day.isPartiallyTaken ? "#FDE68A" : "#FECACA"}`,
                         display: "flex",
                         alignItems: "center",
                         gap: "12px",
@@ -949,8 +875,10 @@ export function DoctorView({
                           width: "36px",
                           height: "36px",
                           borderRadius: "8px",
-                          background: day.taken
+                          background: day.isFullyTaken
                             ? "linear-gradient(135deg, #10B981 0%, #059669 100%)"
+                            : day.isPartiallyTaken
+                            ? "linear-gradient(135deg, #F59E0B 0%, #D97706 100%)"
                             : "linear-gradient(135deg, #EF4444 0%, #DC2626 100%)",
                           display: "flex",
                           alignItems: "center",
@@ -958,11 +886,15 @@ export function DoctorView({
                           flexShrink: 0,
                         }}
                       >
-                        {day.taken ? (
+                        {day.isFullyTaken ? (
                           <CheckCircle
                             className="w-4 h-4"
                             style={{ color: "white" }}
                           />
+                        ) : day.isPartiallyTaken ? (
+                          <span style={{ color: "white", fontSize: "0.625rem", fontWeight: "700" }}>
+                            {day.takenCount}/{day.totalCount}
+                          </span>
                         ) : (
                           <XCircle
                             className="w-4 h-4"
@@ -1004,11 +936,15 @@ export function DoctorView({
                           <span
                             style={{
                               fontSize: "0.75rem",
-                              color: day.taken ? "#059669" : "#DC2626",
+                              color: day.isFullyTaken ? "#059669" : day.isPartiallyTaken ? "#D97706" : "#DC2626",
                               fontWeight: "600",
                             }}
                           >
-                            {day.taken ? "복용 완료" : "복용 누락"}
+                            {day.isFullyTaken
+                              ? "복용 완료"
+                              : day.isPartiallyTaken
+                              ? `일부 복용 (${day.takenCount}/${day.totalCount}회)`
+                              : "복용 누락"}
                           </span>
                           <div
                             style={{
@@ -1075,6 +1011,63 @@ export function DoctorView({
                 border: "1px solid #E2E8F0",
               }}
             >
+              <div
+                style={{
+                  fontSize: "0.75rem",
+                  fontWeight: "600",
+                  color: "#475569",
+                  marginBottom: "10px",
+                }}
+              >
+                복약 상태
+              </div>
+              <div style={{ display: "flex", gap: "12px", flexWrap: "wrap", marginBottom: "12px" }}>
+                <div
+                  style={{ display: "flex", alignItems: "center", gap: "6px" }}
+                >
+                  <div
+                    style={{
+                      width: "12px",
+                      height: "12px",
+                      borderRadius: "3px",
+                      background: "#10B981",
+                    }}
+                  />
+                  <span style={{ fontSize: "0.6875rem", color: "#64748B" }}>
+                    전체 복용
+                  </span>
+                </div>
+                <div
+                  style={{ display: "flex", alignItems: "center", gap: "6px" }}
+                >
+                  <div
+                    style={{
+                      width: "12px",
+                      height: "12px",
+                      borderRadius: "3px",
+                      background: "#F59E0B",
+                    }}
+                  />
+                  <span style={{ fontSize: "0.6875rem", color: "#64748B" }}>
+                    일부 복용
+                  </span>
+                </div>
+                <div
+                  style={{ display: "flex", alignItems: "center", gap: "6px" }}
+                >
+                  <div
+                    style={{
+                      width: "12px",
+                      height: "12px",
+                      borderRadius: "3px",
+                      background: "#EF4444",
+                    }}
+                  />
+                  <span style={{ fontSize: "0.6875rem", color: "#64748B" }}>
+                    복용 누락
+                  </span>
+                </div>
+              </div>
               <div
                 style={{
                   fontSize: "0.75rem",
@@ -1279,6 +1272,116 @@ export function DoctorView({
             </div>
               </>
             )}
+          </div>
+
+          {/* Current Medications */}
+          <div
+            style={{
+              background: "white",
+              padding: "24px",
+              borderRadius: "16px",
+              border: "1px solid #E2E8F0",
+              boxShadow: "0 1px 3px rgba(0,0,0,0.05)",
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "10px",
+                marginBottom: "20px",
+              }}
+            >
+              <Pill className="w-5 h-5" style={{ color: "#285BAA" }} />
+              <h2
+                style={{
+                  fontSize: "1.125rem",
+                  fontWeight: "700",
+                  color: "#0F172A",
+                  marginBottom: 0,
+                }}
+              >
+                현재 복용 중인 약
+              </h2>
+            </div>
+
+            <div className="space-y-3">
+              {currentMedications.length > 0 ? (
+                currentMedications.map((med, idx) => (
+                  <div
+                    key={med.id}
+                    style={{
+                      padding: "16px",
+                      background:
+                        idx === 0
+                          ? "linear-gradient(135deg, #EEF2FF 0%, #E0E7FF 100%)"
+                          : "#F8FAFC",
+                      borderRadius: "12px",
+                      border: "1px solid #CBD5E1",
+                      position: "relative",
+                    }}
+                  >
+                    {med.confidence && med.confidence >= 90 && (
+                      <div
+                        style={{
+                          position: "absolute",
+                          top: "12px",
+                          right: "12px",
+                          background:
+                            "linear-gradient(135deg, #10B981 0%, #059669 100%)",
+                          color: "white",
+                          padding: "4px 10px",
+                          borderRadius: "6px",
+                          fontSize: "0.6875rem",
+                          fontWeight: "700",
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "4px",
+                        }}
+                      >
+                        <CheckCircle className="w-3 h-3" />
+                        {med.confidence}%
+                      </div>
+                    )}
+                    <p
+                      style={{
+                        fontWeight: "700",
+                        fontSize: "1rem",
+                        color: "#0F172A",
+                        marginBottom: "8px",
+                        paddingRight: med.confidence ? "80px" : "0",
+                      }}
+                    >
+                      {med.name}
+                    </p>
+                    <div
+                      style={{
+                        fontSize: "0.875rem",
+                        color: "#475569",
+                        marginBottom: "6px",
+                      }}
+                    >
+                      <span style={{ fontWeight: "600" }}>{med.dosage}</span> ·{" "}
+                      {med.frequency}
+                    </div>
+                    <div style={{ fontSize: "0.8125rem", color: "#64748B" }}>
+                      처방: {med.prescribedBy || "—"}
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div
+                  style={{
+                    padding: "16px",
+                    textAlign: "center",
+                    color: "#64748B",
+                    fontSize: "0.875rem",
+                  }}
+                >
+                  현재 복용 중인 약이 없습니다.
+                </div>
+              )}
+            </div>
           </div>
 
           {questionnaireData && questionnaireData.patientNotes && (

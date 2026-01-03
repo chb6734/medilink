@@ -13,7 +13,7 @@ import {
   Edit2,
   Plus,
 } from "lucide-react";
-import { getRecords } from "@/shared/api";
+import { getRecords, deleteRecord } from "@/shared/api";
 import type { PrescriptionRecord } from "@/entities/record/model/types";
 import { getOrCreatePatientId } from "@/entities/patient/lib/patientId";
 import { AdherenceChart } from "@/features/adherence";
@@ -29,6 +29,7 @@ export function MedicationHistory({ onBack }: MedicationHistoryProps) {
   const [loading, setLoading] = useState(true);
   const [expandedRecord, setExpandedRecord] = useState<string | null>(null);
   const [selectedTab, setSelectedTab] = useState<"active" | "completed">("active");
+  const [adherenceRefreshKey, setAdherenceRefreshKey] = useState(0);
 
   useEffect(() => {
     loadRecords();
@@ -112,8 +113,8 @@ export function MedicationHistory({ onBack }: MedicationHistoryProps) {
           <ArrowLeft className="w-5 h-5" />
         </button>
         <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "8px" }}>
-          <Pill className="w-8 h-8" />
-          <h1 style={{ fontSize: "1.75rem", fontWeight: "800" }}>복약 기록</h1>
+          <Pill className="w-8 h-8" style={{ color: "white" }} />
+          <h1 style={{ fontSize: "1.75rem", fontWeight: "800", color: "white", margin: 0 }}>복약 기록</h1>
         </div>
         <p style={{ opacity: 0.9, fontSize: "0.9375rem" }}>
           처방 정보를 관리하고 복약 상태를 확인하세요
@@ -307,7 +308,7 @@ export function MedicationHistory({ onBack }: MedicationHistoryProps) {
                     {/* 순응도 그래프 */}
                     <div style={{ marginBottom: "24px" }}>
                       <h3 style={{ fontSize: "1rem", fontWeight: "700", marginBottom: "16px" }}>복약 순응도</h3>
-                      <AdherenceChart recordId={record.id} />
+                      <AdherenceChart recordId={record.id} refreshKey={adherenceRefreshKey} />
                     </div>
 
                     {/* 처방 정보 수정/삭제 버튼 */}
@@ -336,8 +337,15 @@ export function MedicationHistory({ onBack }: MedicationHistoryProps) {
                       <button
                         onClick={async () => {
                           if (confirm("정말 이 처방을 삭제하시겠습니까?")) {
-                            // TODO: 삭제 API 호출
-                            alert("삭제 기능은 곧 추가됩니다");
+                            try {
+                              await deleteRecord(record.id);
+                              // 목록에서 해당 기록 제거
+                              setRecords((prev) => prev.filter((r) => r.id !== record.id));
+                              setExpandedRecord(null);
+                            } catch (error) {
+                              console.error("처방 삭제 실패:", error);
+                              alert("처방 삭제에 실패했습니다. 다시 시도해주세요.");
+                            }
                           }
                         }}
                         style={{
@@ -358,8 +366,20 @@ export function MedicationHistory({ onBack }: MedicationHistoryProps) {
                       </button>
                     </div>
 
-                    {/* 약물 목록 */}
+                    {/* 복약 체크 */}
                     <div style={{ marginBottom: "24px" }}>
+                      <h3 style={{ fontSize: "1rem", fontWeight: "700", marginBottom: "12px" }}>복약 체크</h3>
+                      <MedicationCheckList
+                        recordId={record.id}
+                        onCheckUpdate={() => {
+                          loadRecords();
+                          setAdherenceRefreshKey((prev) => prev + 1);
+                        }}
+                      />
+                    </div>
+
+                    {/* 약물 목록 */}
+                    <div>
                       <h3 style={{ fontSize: "1rem", fontWeight: "700", marginBottom: "12px" }}>처방 약물</h3>
                       <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
                         {record.medications.map((med) => (
@@ -396,12 +416,6 @@ export function MedicationHistory({ onBack }: MedicationHistoryProps) {
                           </div>
                         ))}
                       </div>
-                    </div>
-
-                    {/* 복약 체크 */}
-                    <div>
-                      <h3 style={{ fontSize: "1rem", fontWeight: "700", marginBottom: "12px" }}>복약 체크</h3>
-                      <MedicationCheckList recordId={record.id} onCheckUpdate={loadRecords} />
                     </div>
                   </div>
                 )}

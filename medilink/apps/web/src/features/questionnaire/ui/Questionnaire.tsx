@@ -12,7 +12,7 @@ interface QuestionnaireProps {
 }
 
 export function Questionnaire(props: QuestionnaireProps) {
-  const { initialData = {}, onBack, onComplete } = props;
+  const { initialData = {}, visitType = "new", onBack, onComplete } = props;
 
   // sessionStorage에서 이전 데이터 복원 (병원 선택에서 뒤로가기 시)
   const getInitialState = () => {
@@ -33,7 +33,9 @@ export function Questionnaire(props: QuestionnaireProps) {
 
   const initial = getInitialState();
   const [step, setStep] = useState(initial.step);
-  const [formData, setFormData] = useState<Partial<QuestionnaireData>>(initial.data);
+  const [formData, setFormData] = useState<Partial<QuestionnaireData>>(
+    initial.data
+  );
   const [symptomDetail, setSymptomDetail] = useState(
     initial.data.symptomDetail ?? ""
   );
@@ -65,16 +67,62 @@ export function Questionnaire(props: QuestionnaireProps) {
     };
   }, []); // 컴포넌트 마운트 시 1번만 실행
 
-  const steps = useMemo(
-    () => [
+  // 약 복용 여부 확인 (부작용 질문 스킵 여부 결정)
+  const didTakeMedication = () => {
+    const compliance = formData.medicationCompliance;
+    if (!compliance) return false;
+    // "아니요, 먹지 않았어요" 또는 "처방받은 적 없음"인 경우 약을 먹지 않은 것으로 간주
+    return !compliance.includes("아니요") && !compliance.includes("처방받은 적 없음");
+  };
+
+  type Step = {
+    id: string;
+    kind: "symptom" | "select" | "textarea";
+    required: boolean;
+    title?: string;
+    subtitle?: string;
+    options?: string[];
+    placeholder?: string;
+    skipIf?: () => boolean;
+  };
+
+  const steps = useMemo((): Step[] => {
+    const medicationStep: Step = visitType === "new"
+      ? {
+          id: "medicationCompliance",
+          kind: "select",
+          required: true,
+          title: "약국에서 약을 사서 드셨나요?",
+          subtitle: "처방 없이 직접 구매한 약이 있는지 알려주세요",
+          options: [
+            "아니요, 먹지 않았어요",
+            "네, 사서 먹었어요",
+          ],
+        }
+      : {
+          id: "medicationCompliance",
+          kind: "select",
+          required: true,
+          title: "처방받은 약을 드셨나요?",
+          subtitle: "복약 여부는 진료 판단에 큰 도움이 됩니다",
+          options: [
+            "처방받은 적 없음",
+            "빠짐없이 먹었어요",
+            "가끔 빠뜨렸어요",
+            "자주 빠뜨렸어요",
+            "먹다가 중단했어요",
+          ],
+        };
+
+    return [
       {
-        id: "chiefComplaint" as const,
-        kind: "symptom" as const,
+        id: "chiefComplaint",
+        kind: "symptom",
         required: true,
       },
       {
-        id: "symptomProgress" as const,
-        kind: "select" as const,
+        id: "symptomProgress",
+        kind: "select",
         required: true,
         title: "증상이 어떻게 변했나요?",
         subtitle: "최근 며칠 사이 경과를 선택해주세요",
@@ -82,61 +130,83 @@ export function Questionnaire(props: QuestionnaireProps) {
           "점점 좋아지고 있어요",
           "비슷해요",
           "점점 나빠지고 있어요",
-          "좋았다 나빴다 해요",
+          "좋았다 나빠다 해요",
         ],
       },
+      medicationStep,
       {
-        id: "medicationCompliance" as const,
-        kind: "select" as const,
-        required: true,
-        title: "처방받은 약을 드셨나요?",
-        subtitle: "복약 여부는 진료 판단에 큰 도움이 됩니다",
-        options: [
-          "처방받은 적 없음",
-          "빠짐없이 먹었어요",
-          "가끔 빠뜨렸어요",
-          "자주 빠뜨렸어요",
-          "먹다가 중단했어요",
-        ],
-      },
-      {
-        id: "sideEffects" as const,
-        kind: "textarea" as const,
+        id: "sideEffects",
+        kind: "textarea",
         required: true,
         title: "약 먹고 이상한 점은 없었나요?",
-        subtitle: "없다면 “없음”이라고 적어주세요",
-        placeholder: "예: 속이 메스꺼웠어요\n(없으면 “없음” 입력)",
+        subtitle: '없다면 "없음"이라고 적어주세요',
+        placeholder: '예: 속이 메스꺼웠어요\n(없으면 "없음" 입력)',
+        skipIf: () => !didTakeMedication(), // 약을 먹지 않았으면 스킵
       },
       {
-        id: "allergies" as const,
-        kind: "textarea" as const,
+        id: "allergies",
+        kind: "textarea",
         required: false,
         title: "알레르기가 있으신가요?",
         subtitle: "선택사항",
-        placeholder: "예: 페니실린 알레르기\n(없으면 “없음” 입력)",
+        placeholder: '예: 페니실린 알레르기\n(없으면 "없음" 입력)',
       },
       {
-        id: "patientNotes" as const,
-        kind: "textarea" as const,
+        id: "patientNotes",
+        kind: "textarea",
         required: false,
         title: "의사에게 꼭 전할 말이 있나요?",
         subtitle: "선택사항",
         placeholder: "예: 이전에 같은 증상으로 ○○병원에서 치료받았어요",
       },
-    ],
-    []
-  );
+    ];
+  }, [visitType, formData.medicationCompliance]);
 
   const current = steps[step];
 
   const handleNext = () => {
-    if (step < steps.length - 1) setStep(step + 1);
-    else onComplete(formData as QuestionnaireData);
+    if (step < steps.length - 1) {
+      // 다음 스텝 찾기 (skipIf 조건 체크)
+      let nextStep = step + 1;
+      while (nextStep < steps.length) {
+        const nextStepData = steps[nextStep] as any;
+        if (nextStepData.skipIf && nextStepData.skipIf()) {
+          // 스킵되는 스텝의 기본값 설정
+          if (nextStepData.id === "sideEffects") {
+            updateFormData("sideEffects", "없음");
+          }
+          nextStep++;
+        } else {
+          break;
+        }
+      }
+      if (nextStep < steps.length) {
+        setStep(nextStep);
+      } else {
+        onComplete(formData as QuestionnaireData);
+      }
+    } else {
+      onComplete(formData as QuestionnaireData);
+    }
   };
 
   const handleBackStep = () => {
     if (step > 0) {
-      setStep(step - 1);
+      // 이전 스텝 찾기 (skipIf 조건 체크)
+      let prevStep = step - 1;
+      while (prevStep >= 0) {
+        const prevStepData = steps[prevStep] as any;
+        if (prevStepData.skipIf && prevStepData.skipIf()) {
+          prevStep--;
+        } else {
+          break;
+        }
+      }
+      if (prevStep >= 0) {
+        setStep(prevStep);
+      } else {
+        onBack();
+      }
     } else {
       onBack();
     }
@@ -475,8 +545,8 @@ export function Questionnaire(props: QuestionnaireProps) {
               <div
                 style={{ display: "flex", flexDirection: "column", gap: 12 }}
               >
-                {current.options.map((option) => {
-                  const selected = formData[current.id] === option;
+                {current.options?.map((option) => {
+                  const selected = (formData as Record<string, string>)[current.id] === option;
                   return (
                     <button
                       key={option}
@@ -517,9 +587,7 @@ export function Questionnaire(props: QuestionnaireProps) {
                           width: 24,
                           height: 24,
                           borderRadius: 999,
-                          border: selected
-                            ? "none"
-                            : "2px solid #D1D5DB",
+                          border: selected ? "none" : "2px solid #D1D5DB",
                           background: selected
                             ? "linear-gradient(135deg, #2563EB 0%, #3B82F6 100%)"
                             : "white",
@@ -568,7 +636,7 @@ export function Questionnaire(props: QuestionnaireProps) {
                 </p>
               )}
               <textarea
-                value={formData[current.id] || ""}
+                value={(formData as Record<string, string>)[current.id] || ""}
                 onChange={(e) => updateFormData(current.id, e.target.value)}
                 placeholder={current.placeholder}
                 rows={6}

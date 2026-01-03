@@ -189,13 +189,16 @@ export function ShareView({
           className="card"
           style={{
             padding: "32px 24px",
-            textAlign: "center",
             marginBottom: "24px",
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
           }}
         >
+          {/* 라벨 - QR 코드 위에 위치 */}
           <div
             style={{
-              display: "inline-flex",
+              display: "flex",
               alignItems: "center",
               gap: "8px",
               background: "var(--color-accent-light)",
@@ -211,9 +214,9 @@ export function ShareView({
             <span>의료진 전용 코드</span>
           </div>
 
+          {/* QR 코드 */}
           <div
             style={{
-              display: "inline-block",
               padding: "24px",
               background: "white",
               borderRadius: "16px",
@@ -228,11 +231,14 @@ export function ShareView({
             />
           </div>
 
+          {/* 안내 텍스트 */}
           <p
             style={{
               color: "var(--color-text-secondary)",
               lineHeight: "1.5",
               fontSize: "1rem",
+              textAlign: "center",
+              margin: 0,
             }}
           >
             진료실에서 의사나 간호사에게

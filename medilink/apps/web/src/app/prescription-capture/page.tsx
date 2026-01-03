@@ -16,13 +16,43 @@ function PrescriptionCaptureContent() {
   const [ocrLoading, setOcrLoading] = useState(false);
   const [ocrResult, setOcrResult] = useState<any>(null);
   const [hospitalName, setHospitalName] = useState("");
+  const [dispensedAt, setDispensedAt] = useState("");
+  const [daysSupply, setDaysSupply] = useState<number | "">("");
   const [saving, setSaving] = useState(false);
+
+  // OCR 결과에서 조제일과 복용일수 추출
+  const extractDateAndDays = (result: any) => {
+    // 조제일 추출 - 약물 정보에서 가져오기
+    const firstMed = result.medications?.[0];
+    if (firstMed?.dispensingDate) {
+      // "2026-01-03" 형식으로 변환
+      const dateStr = firstMed.dispensingDate;
+      if (dateStr && /^\d{4}-\d{2}-\d{2}/.test(dateStr)) {
+        setDispensedAt(dateStr.slice(0, 10));
+      }
+    }
+
+    // 복용일수 추출 - duration 또는 dosesPerDay/totalDoses에서 계산
+    if (firstMed?.duration) {
+      // "7일" 또는 "7일분" 형식 파싱
+      const match = firstMed.duration.match(/(\d+)/);
+      if (match) {
+        setDaysSupply(parseInt(match[1], 10));
+      }
+    } else if (firstMed?.dosesPerDay && firstMed?.totalDoses) {
+      // 1일 복용 횟수와 총 복용 횟수로 계산
+      const days = Math.ceil(firstMed.totalDoses / firstMed.dosesPerDay);
+      setDaysSupply(days);
+    }
+  };
 
   const handleImageSelect = async (file: File) => {
     setImageFile(file);
     setImagePreview(URL.createObjectURL(file));
     setOcrResult(null);
     setHospitalName("");
+    setDispensedAt("");
+    setDaysSupply("");
 
     // OCR 분석 시작
     setOcrLoading(true);
@@ -30,6 +60,7 @@ function PrescriptionCaptureContent() {
       const result = await previewOcr(file);
       setOcrResult(result);
       setHospitalName(result.hospitalName || "");
+      extractDateAndDays(result);
     } catch (error) {
       console.error("OCR 분석 실패:", error);
       alert("이미지 분석에 실패했습니다. 다시 시도해주세요.");
@@ -66,6 +97,8 @@ function PrescriptionCaptureContent() {
         recordType: "dispensing_record",
         file: imageFile,
         facilityName: hospitalName,
+        dispensedAt: dispensedAt || undefined,
+        daysSupply: typeof daysSupply === "number" ? daysSupply : undefined,
         medications: ocrResult.medications?.map((m: any) => ({
           name: m.medicationName,
           dosage: m.dose,
@@ -235,6 +268,8 @@ function PrescriptionCaptureContent() {
                   setImageFile(null);
                   setOcrResult(null);
                   setHospitalName("");
+                  setDispensedAt("");
+                  setDaysSupply("");
                 }}
                 style={{
                   position: "absolute",
@@ -360,6 +395,97 @@ function PrescriptionCaptureContent() {
                       💡 AI가 추출한 병원명: <strong>{ocrResult.hospitalName}</strong>
                     </p>
                   )}
+                </div>
+
+                {/* 조제일 & 복용일수 */}
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px", marginBottom: "24px" }}>
+                  <div>
+                    <label
+                      style={{
+                        display: "block",
+                        fontSize: "0.9375rem",
+                        fontWeight: "700",
+                        color: "var(--color-text-primary)",
+                        marginBottom: "8px",
+                      }}
+                    >
+                      조제일
+                    </label>
+                    <input
+                      type="date"
+                      value={dispensedAt}
+                      onChange={(e) => setDispensedAt(e.target.value)}
+                      style={{
+                        width: "100%",
+                        padding: "14px",
+                        borderRadius: "12px",
+                        border: "2px solid #D1D5DB",
+                        fontSize: "1rem",
+                        background: "white",
+                        outline: "none",
+                      }}
+                      onFocus={(e) =>
+                        (e.currentTarget.style.borderColor = "var(--color-accent)")
+                      }
+                      onBlur={(e) => (e.currentTarget.style.borderColor = "#D1D5DB")}
+                    />
+                    {ocrResult.medications?.[0]?.dispensingDate && (
+                      <p
+                        style={{
+                          fontSize: "0.75rem",
+                          color: "var(--color-text-secondary)",
+                          marginTop: "6px",
+                        }}
+                      >
+                        💡 AI 추출: {ocrResult.medications[0].dispensingDate}
+                      </p>
+                    )}
+                  </div>
+                  <div>
+                    <label
+                      style={{
+                        display: "block",
+                        fontSize: "0.9375rem",
+                        fontWeight: "700",
+                        color: "var(--color-text-primary)",
+                        marginBottom: "8px",
+                      }}
+                    >
+                      복용일수
+                    </label>
+                    <input
+                      type="number"
+                      value={daysSupply}
+                      onChange={(e) => setDaysSupply(e.target.value ? parseInt(e.target.value, 10) : "")}
+                      placeholder="예: 7"
+                      min={1}
+                      max={365}
+                      style={{
+                        width: "100%",
+                        padding: "14px",
+                        borderRadius: "12px",
+                        border: "2px solid #D1D5DB",
+                        fontSize: "1rem",
+                        background: "white",
+                        outline: "none",
+                      }}
+                      onFocus={(e) =>
+                        (e.currentTarget.style.borderColor = "var(--color-accent)")
+                      }
+                      onBlur={(e) => (e.currentTarget.style.borderColor = "#D1D5DB")}
+                    />
+                    {ocrResult.medications?.[0]?.duration && (
+                      <p
+                        style={{
+                          fontSize: "0.75rem",
+                          color: "var(--color-text-secondary)",
+                          marginTop: "6px",
+                        }}
+                      >
+                        💡 AI 추출: {ocrResult.medications[0].duration}
+                      </p>
+                    )}
+                  </div>
                 </div>
 
                 {/* 약물 정보 */}

@@ -218,15 +218,17 @@ export function MedicationCheckList({ recordId, onCheckUpdate }: MedicationCheck
               >
                 {dateChecks
                   .sort((a, b) => new Date(a.scheduledAt).getTime() - new Date(b.scheduledAt).getTime())
-                  .map((check) => {
+                  .map((check, index) => {
                     const isFuture = isTimeInFuture(check.scheduledAt);
-                    const isUpdating = updating.has(check.id);
+                    const checkId = check.id || `${date}-${index}`;
+                    const isUpdating = check.id ? updating.has(check.id) : false;
+                    const hasValidId = !!check.id;
 
                     return (
                       <button
-                        key={check.id}
-                        onClick={() => !isFuture && handleToggleCheck(check)}
-                        disabled={isFuture || isUpdating}
+                        key={checkId}
+                        onClick={() => !isFuture && hasValidId && handleToggleCheck(check)}
+                        disabled={isFuture || isUpdating || !hasValidId}
                         style={{
                           padding: "12px 8px",
                           borderRadius: "12px",
