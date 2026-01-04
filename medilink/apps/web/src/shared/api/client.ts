@@ -1,19 +1,6 @@
 "use client";
 
-function getApiBaseUrl() {
-  // Prefer explicit env
-  if (process.env.NEXT_PUBLIC_API_BASE_URL) {
-    return process.env.NEXT_PUBLIC_API_BASE_URL;
-  }
-  // Default: match current hostname to keep session cookies first-party
-  // (localhost vs 127.0.0.1 mismatch causes SameSite=Lax cookies to not be sent)
-  if (typeof window !== "undefined") {
-    const proto = window.location.protocol;
-    const host = window.location.hostname; // keep same host string
-    return `${proto}//${host}:8787`;
-  }
-  return "http://127.0.0.1:8787";
-}
+import { getApiBaseUrl } from "@/shared/lib/config";
 
 async function parseError(resp: globalThis.Response) {
   const text = await resp.text();

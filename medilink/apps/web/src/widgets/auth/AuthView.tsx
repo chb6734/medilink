@@ -1,6 +1,9 @@
 import { ArrowLeft, Eye, EyeOff } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { authMe, authPhoneStart, authPhoneVerify } from "@/shared/api";
+import { getApiBaseUrl } from "@/shared/lib/config";
+import { getErrorMessage } from "@/shared/lib/error";
+import { formatPhoneNumber, toE164Kr } from "@/features/auth/lib";
 
 type SessionUser = {
   id: string;
@@ -9,37 +12,6 @@ type SessionUser = {
   displayName?: string;
   phoneE164?: string;
 };
-
-function errMsg(e: unknown) {
-  if (e instanceof Error) return e.message;
-  return String(e);
-}
-
-function getApiBaseUrl() {
-  if (process.env.NEXT_PUBLIC_API_BASE_URL)
-    return process.env.NEXT_PUBLIC_API_BASE_URL;
-  if (typeof window !== "undefined") {
-    return `${window.location.protocol}//${window.location.hostname}:8787`;
-  }
-  return "http://127.0.0.1:8787";
-}
-
-function formatPhoneNumber(value: string) {
-  const numbers = value.replace(/[^\d]/g, "");
-  if (numbers.length <= 3) return numbers;
-  if (numbers.length <= 7) return `${numbers.slice(0, 3)}-${numbers.slice(3)}`;
-  return `${numbers.slice(0, 3)}-${numbers.slice(3, 7)}-${numbers.slice(7, 11)}`;
-}
-
-function toE164Kr(phoneLike: string) {
-  const raw = phoneLike.trim();
-  if (raw.startsWith("+")) return raw;
-  const digits = raw.replace(/[^\d]/g, "");
-  if (!digits) return raw;
-  if (digits.startsWith("0")) return `+82${digits.slice(1)}`;
-  if (digits.startsWith("82")) return `+${digits}`;
-  return `+82${digits}`;
-}
 
 export function AuthView({
   onBack,
@@ -78,7 +50,7 @@ export function AuthView({
       setAuthEnabled(!!me.authEnabled);
       setUser(me.user as SessionUser | null);
     } catch (e) {
-      setError(errMsg(e));
+      setError(getErrorMessage(e));
     } finally {
       setLoading(false);
     }
@@ -308,7 +280,7 @@ export function AuthView({
                 await authPhoneVerify({ challengeId, code });
                 await refresh();
               } catch (e) {
-                setError(errMsg(e));
+                setError(getErrorMessage(e));
               } finally {
                 setPhoneLoading(false);
               }
@@ -427,7 +399,7 @@ export function AuthView({
                 window.location.href = url.toString();
               } catch (e) {
                 setGoogleLoading(false);
-                setError(errMsg(e));
+                setError(getErrorMessage(e));
               }
             }}
             style={{

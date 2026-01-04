@@ -25,9 +25,10 @@ export function useMedicationRecords(): UseMedicationRecordsReturn {
       const patientId = getOrCreatePatientId();
       const data = await getRecords({ patientId });
       setRecords(data.records);
-    } catch (e: any) {
+    } catch (e: unknown) {
       console.error('복약 기록 로드 실패:', e);
-      if (e.message === 'unauthorized' || e.status === 401) {
+      const error = e as { message?: string; status?: number };
+      if (error.message === 'unauthorized' || error.status === 401) {
         const returnTo = window.location.pathname;
         router.push(`/login?returnTo=${encodeURIComponent(returnTo)}`);
       }

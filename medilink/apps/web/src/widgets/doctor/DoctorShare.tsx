@@ -1,37 +1,15 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo } from "react";
 import { DoctorView } from "./DoctorView";
 import type { PrescriptionRecord } from "@/entities/record/model/types";
 import type { QuestionnaireData } from "@/entities/questionnaire/model/types";
-import { fetchShare } from "@/shared/api";
+import { useShareData } from "./lib/useShareData";
 
 export function DoctorShare({ token }: { token: string }) {
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [data, setData] = useState<any>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    setLoading(true);
-    setError(null);
-    fetchShare(token)
-      .then((d) => {
-        if (cancelled) return;
-        setData(d);
-        setLoading(false);
-      })
-      .catch((e) => {
-        if (cancelled) return;
-        setError(String(e?.message ?? e));
-        setLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [token]);
+  const { loading, error, data } = useShareData(token);
 
   const records: PrescriptionRecord[] = useMemo(() => {
     if (!data?.records) return [];
-    return data.records.map((r: any) => ({
+    return data.records.map((r) => ({
       id: r.id,
       prescriptionDate: new Date(r.createdAt).toISOString().slice(0, 10),
       hospitalName: undefined,
@@ -39,7 +17,7 @@ export function DoctorShare({ token }: { token: string }) {
       chiefComplaint: r.chiefComplaint ?? undefined,
       diagnosis: r.doctorDiagnosis ?? undefined,
       ocrConfidence: undefined,
-      medications: (r.meds ?? []).map((m: any, idx: number) => ({
+      medications: (r.meds ?? []).map((m, idx) => ({
         id: `${r.id}-${idx}`,
         name: m.nameRaw,
         dosage: "",

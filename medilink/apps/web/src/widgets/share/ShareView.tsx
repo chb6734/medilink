@@ -3,6 +3,11 @@
 import { useEffect, useMemo, useState } from "react";
 import { ArrowLeft, QrCode, RefreshCw, Clock, CheckCircle } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
+import {
+  SHARE_TOKEN_EXPIRY_SECONDS,
+  LOW_TIME_WARNING_THRESHOLD,
+  SECONDS_PER_MINUTE,
+} from "./lib/constants";
 
 interface ShareViewProps {
   token: string;
@@ -15,7 +20,7 @@ export function ShareView({
   onBack,
   onRegenerateToken,
 }: ShareViewProps) {
-  const [timeLeft, setTimeLeft] = useState(600); // 10 minutes
+  const [timeLeft, setTimeLeft] = useState(SHARE_TOKEN_EXPIRY_SECONDS);
   const origin = useMemo(
     () => (typeof window === "undefined" ? "" : window.location.origin),
     []
@@ -36,15 +41,17 @@ export function ShareView({
   }, [token]);
 
   const formatTime = (seconds: number) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
+    const mins = Math.floor(seconds / SECONDS_PER_MINUTE);
+    const secs = seconds % SECONDS_PER_MINUTE;
     return `${mins}:${secs.toString().padStart(2, "0")}`;
   };
 
   const handleRegenerate = () => {
     onRegenerateToken();
-    setTimeLeft(600);
+    setTimeLeft(SHARE_TOKEN_EXPIRY_SECONDS);
   };
+
+  const isLowTime = timeLeft < LOW_TIME_WARNING_THRESHOLD;
 
   return (
     <div className="min-h-screen pb-8">
@@ -128,7 +135,7 @@ export function ShareView({
             padding: "20px",
             marginBottom: "24px",
             background:
-              timeLeft < 60 ? "var(--color-alert-bg)" : "var(--color-surface)",
+              isLowTime ? "var(--color-alert-bg)" : "var(--color-surface)",
           }}
         >
           <div
@@ -143,7 +150,7 @@ export function ShareView({
                 className="w-5 h-5"
                 style={{
                   color:
-                    timeLeft < 60
+                    isLowTime
                       ? "var(--color-alert)"
                       : "var(--color-text-secondary)",
                 }}
@@ -151,7 +158,7 @@ export function ShareView({
               <span
                 style={{
                   color:
-                    timeLeft < 60
+                    isLowTime
                       ? "var(--color-alert)"
                       : "var(--color-text-primary)",
                 }}
@@ -165,13 +172,13 @@ export function ShareView({
                 fontWeight: "700",
                 fontFamily: "monospace",
                 color:
-                  timeLeft < 60 ? "var(--color-alert)" : "var(--color-accent)",
+                  isLowTime ? "var(--color-alert)" : "var(--color-accent)",
               }}
             >
               {formatTime(timeLeft)}
             </span>
           </div>
-          {timeLeft < 60 && (
+          {isLowTime && (
             <p
               style={{
                 marginTop: "12px",
