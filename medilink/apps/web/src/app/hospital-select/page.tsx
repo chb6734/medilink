@@ -86,11 +86,23 @@ function HospitalSelectContent() {
 
   // 이전 처방인 경우 이전 병원 가져오기
   useEffect(() => {
-    if (visitType !== "followup" || !recordId) return;
+    if (visitType !== "followup") return;
 
     let cancelled = false;
     (async () => {
       try {
+        // 1. First try to get from sessionStorage (from prescription-capture)
+        const storedHospitalName = sessionStorage.getItem('previousHospitalName');
+        if (!cancelled && storedHospitalName) {
+          setDefaultHospitalName(storedHospitalName);
+          // Clean up after use
+          sessionStorage.removeItem('previousHospitalName');
+          return;
+        }
+
+        // 2. Fallback: fetch from records if recordId exists
+        if (!recordId) return;
+
         const patientId = getOrCreatePatientId();
         const data = await getRecords({ patientId });
         const record = data.records.find((r) => r.id === recordId);
