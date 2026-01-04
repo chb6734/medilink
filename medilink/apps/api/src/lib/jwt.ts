@@ -2,7 +2,7 @@ import jwt from 'jsonwebtoken';
 
 export interface JwtPayload {
   userId: string;
-  provider: 'google' | 'phone';
+  provider: 'google' | 'phone' | 'password';
   subject: string;
   displayName?: string;
 }

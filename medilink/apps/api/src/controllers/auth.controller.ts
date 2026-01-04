@@ -10,10 +10,12 @@ import {
   Req,
   Res,
   UnauthorizedException,
+  ConflictException,
 } from '@nestjs/common';
 import type { Request, Response } from 'express';
 import crypto from 'node:crypto';
 import { z } from 'zod';
+import bcrypt from 'bcrypt';
 import {
   getGoogleClient,
   getGoogleOAuthClient,
@@ -22,6 +24,7 @@ import {
   sha256,
 } from '../lib/auth';
 import { generateToken, verifyToken } from '../lib/jwt';
+import { prisma } from '@medilink/db';
 
 const log = new Logger('Auth');
 
@@ -377,5 +380,327 @@ export class AuthController {
     });
 
     return res.json({ ok: true });
+  }
+
+  // ============= 회원가입 (전화번호 인증 후 비밀번호 설정) =============
+
+  // 1단계: 전화번호로 인증번호 발송 (회원가입용)
+  @Post('/api/auth/register/start')
+  async registerStart(@Body() body: unknown) {
+    if (!isAuthEnabled()) throw new NotFoundException('auth_disabled');
+
+    const parsed = z
+      .object({ phoneE164: z.string().min(8).max(20) })
+      .safeParse(body);
+    if (!parsed.success) throw new BadRequestException('invalid_body');
+
+    // 이미 가입된 전화번호인지 확인
+    const existing = await prisma.patient.findFirst({
+      where: { phoneE164: parsed.data.phoneE164 },
+    });
+    if (existing) {
+      throw new ConflictException('phone_already_registered');
+    }
+
+    const challengeId = crypto.randomUUID();
+    const code = randomOtpCode();
+    const expiresAt = Date.now() + 5 * 60 * 1000;
+    otpStore.set(challengeId, {
+      phoneE164: parsed.data.phoneE164,
+      codeHash: sha256(code),
+      expiresAt,
+      tries: 0,
+    });
+
+    // SMS 발송
+    const provider = (process.env.SMS_PROVIDER ?? 'dev').toLowerCase();
+    if (provider === 'dev') {
+      log.warn(`DEV_OTP_CODE (register) phone=${parsed.data.phoneE164} code=${code}`);
+    } else if (provider === 'twilio') {
+      const accountSid = process.env.TWILIO_ACCOUNT_SID;
+      const authToken = process.env.TWILIO_AUTH_TOKEN;
+      const from = process.env.TWILIO_FROM;
+      if (!accountSid || !authToken || !from) {
+        throw new UnauthorizedException('sms_provider_not_configured');
+      }
+      const { default: twilio } = await import('twilio');
+      const client = twilio(accountSid, authToken);
+      await client.messages.create({
+        to: parsed.data.phoneE164,
+        from,
+        body: `[MediLink] 회원가입 인증번호: ${code} (5분 내 입력)`,
+      });
+    } else {
+      throw new UnauthorizedException('unsupported_sms_provider');
+    }
+
+    return { challengeId, expiresAt };
+  }
+
+  // 2단계: 인증번호 확인 및 회원가입 완료
+  @Post('/api/auth/register/complete')
+  async registerComplete(
+    @Req() req: Request,
+    @Res() res: Response,
+    @Body() body: unknown,
+  ) {
+    if (!isAuthEnabled()) throw new NotFoundException('auth_disabled');
+
+    const parsed = z
+      .object({
+        challengeId: z.string().uuid(),
+        code: z.string().min(4).max(10),
+        password: z.string().min(6).max(100),
+        name: z.string().min(1).max(50).optional(),
+      })
+      .safeParse(body);
+    if (!parsed.success) throw new BadRequestException('invalid_body');
+
+    const entry = otpStore.get(parsed.data.challengeId);
+    if (!entry) throw new NotFoundException('challenge_not_found');
+    if (Date.now() > entry.expiresAt)
+      throw new UnauthorizedException('challenge_expired');
+
+    entry.tries += 1;
+    if (entry.tries > 5) throw new UnauthorizedException('too_many_tries');
+
+    if (sha256(parsed.data.code) !== entry.codeHash) {
+      throw new UnauthorizedException('invalid_code');
+    }
+
+    // 인증 성공, 회원 생성
+    const passwordHash = await bcrypt.hash(parsed.data.password, 10);
+
+    const patient = await prisma.patient.create({
+      data: {
+        phoneE164: entry.phoneE164,
+        passwordHash,
+        name: parsed.data.name || null,
+        authProvider: 'password',
+        authSubject: entry.phoneE164,
+      },
+    });
+
+    otpStore.delete(parsed.data.challengeId);
+
+    // JWT 발급
+    const jwtPayload = {
+      userId: patient.id,
+      provider: 'password' as const,
+      subject: entry.phoneE164,
+      displayName: parsed.data.name,
+    };
+    const token = generateToken(jwtPayload);
+
+    // HttpOnly 쿠키로 JWT 전송
+    const isProduction = process.env.NODE_ENV === 'production';
+    const cookieDomain = process.env.COOKIE_DOMAIN;
+
+    res.cookie('auth_token', token, {
+      httpOnly: true,
+      secure: isProduction,
+      sameSite: isProduction ? 'none' : 'lax',
+      domain: cookieDomain || undefined,
+      path: '/',
+      maxAge: 7 * 24 * 60 * 60 * 1000,
+    });
+
+    log.log(`회원가입 완료: ${entry.phoneE164}`);
+    return res.json({ ok: true, userId: patient.id });
+  }
+
+  // ============= 비밀번호 로그인 =============
+  @Post('/api/auth/login')
+  async login(
+    @Req() req: Request,
+    @Res() res: Response,
+    @Body() body: unknown,
+  ) {
+    if (!isAuthEnabled()) throw new NotFoundException('auth_disabled');
+
+    const parsed = z
+      .object({
+        phoneE164: z.string().min(8).max(20),
+        password: z.string().min(1).max(100),
+      })
+      .safeParse(body);
+    if (!parsed.success) throw new BadRequestException('invalid_body');
+
+    // 사용자 찾기
+    const patient = await prisma.patient.findFirst({
+      where: { phoneE164: parsed.data.phoneE164 },
+    });
+
+    if (!patient || !patient.passwordHash) {
+      throw new UnauthorizedException('invalid_credentials');
+    }
+
+    // 비밀번호 확인
+    const passwordMatch = await bcrypt.compare(
+      parsed.data.password,
+      patient.passwordHash,
+    );
+    if (!passwordMatch) {
+      throw new UnauthorizedException('invalid_credentials');
+    }
+
+    // JWT 발급
+    const jwtPayload = {
+      userId: patient.id,
+      provider: 'password' as const,
+      subject: parsed.data.phoneE164,
+      displayName: patient.name || undefined,
+    };
+    const token = generateToken(jwtPayload);
+
+    // HttpOnly 쿠키로 JWT 전송
+    const isProduction = process.env.NODE_ENV === 'production';
+    const cookieDomain = process.env.COOKIE_DOMAIN;
+
+    res.cookie('auth_token', token, {
+      httpOnly: true,
+      secure: isProduction,
+      sameSite: isProduction ? 'none' : 'lax',
+      domain: cookieDomain || undefined,
+      path: '/',
+      maxAge: 7 * 24 * 60 * 60 * 1000,
+    });
+
+    log.log(`로그인 성공: ${parsed.data.phoneE164}`);
+    return res.json({ ok: true, userId: patient.id });
+  }
+
+  // ============= 아이디(전화번호) 찾기 =============
+  @Post('/api/auth/find-phone')
+  async findPhone(@Body() body: unknown) {
+    if (!isAuthEnabled()) throw new NotFoundException('auth_disabled');
+
+    const parsed = z
+      .object({
+        name: z.string().min(1).max(50),
+        birthDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/), // YYYY-MM-DD
+      })
+      .safeParse(body);
+    if (!parsed.success) throw new BadRequestException('invalid_body');
+
+    // 이름과 생년월일로 사용자 찾기
+    const patient = await prisma.patient.findFirst({
+      where: {
+        name: parsed.data.name,
+        birthDate: new Date(parsed.data.birthDate),
+      },
+    });
+
+    if (!patient || !patient.phoneE164) {
+      throw new NotFoundException('user_not_found');
+    }
+
+    // 전화번호 일부 마스킹 (예: 010-****-5678)
+    const phone = patient.phoneE164;
+    let maskedPhone = phone;
+    if (phone.startsWith('+82')) {
+      // +821012345678 -> 010-****-5678
+      const localPhone = '0' + phone.slice(3);
+      if (localPhone.length === 11) {
+        maskedPhone = `${localPhone.slice(0, 3)}-****-${localPhone.slice(7)}`;
+      }
+    }
+
+    return { maskedPhone };
+  }
+
+  // ============= 비밀번호 찾기/재설정 =============
+
+  // 1단계: 전화번호로 인증번호 발송 (비밀번호 재설정용)
+  @Post('/api/auth/reset-password/start')
+  async resetPasswordStart(@Body() body: unknown) {
+    if (!isAuthEnabled()) throw new NotFoundException('auth_disabled');
+
+    const parsed = z
+      .object({ phoneE164: z.string().min(8).max(20) })
+      .safeParse(body);
+    if (!parsed.success) throw new BadRequestException('invalid_body');
+
+    // 가입된 사용자인지 확인
+    const patient = await prisma.patient.findFirst({
+      where: { phoneE164: parsed.data.phoneE164 },
+    });
+    if (!patient) {
+      throw new NotFoundException('user_not_found');
+    }
+
+    const challengeId = crypto.randomUUID();
+    const code = randomOtpCode();
+    const expiresAt = Date.now() + 5 * 60 * 1000;
+    otpStore.set(challengeId, {
+      phoneE164: parsed.data.phoneE164,
+      codeHash: sha256(code),
+      expiresAt,
+      tries: 0,
+    });
+
+    // SMS 발송
+    const provider = (process.env.SMS_PROVIDER ?? 'dev').toLowerCase();
+    if (provider === 'dev') {
+      log.warn(`DEV_OTP_CODE (reset) phone=${parsed.data.phoneE164} code=${code}`);
+    } else if (provider === 'twilio') {
+      const accountSid = process.env.TWILIO_ACCOUNT_SID;
+      const authToken = process.env.TWILIO_AUTH_TOKEN;
+      const from = process.env.TWILIO_FROM;
+      if (!accountSid || !authToken || !from) {
+        throw new UnauthorizedException('sms_provider_not_configured');
+      }
+      const { default: twilio } = await import('twilio');
+      const client = twilio(accountSid, authToken);
+      await client.messages.create({
+        to: parsed.data.phoneE164,
+        from,
+        body: `[MediLink] 비밀번호 재설정 인증번호: ${code} (5분 내 입력)`,
+      });
+    } else {
+      throw new UnauthorizedException('unsupported_sms_provider');
+    }
+
+    return { challengeId, expiresAt };
+  }
+
+  // 2단계: 인증번호 확인 및 비밀번호 재설정
+  @Post('/api/auth/reset-password/complete')
+  async resetPasswordComplete(@Body() body: unknown) {
+    if (!isAuthEnabled()) throw new NotFoundException('auth_disabled');
+
+    const parsed = z
+      .object({
+        challengeId: z.string().uuid(),
+        code: z.string().min(4).max(10),
+        newPassword: z.string().min(6).max(100),
+      })
+      .safeParse(body);
+    if (!parsed.success) throw new BadRequestException('invalid_body');
+
+    const entry = otpStore.get(parsed.data.challengeId);
+    if (!entry) throw new NotFoundException('challenge_not_found');
+    if (Date.now() > entry.expiresAt)
+      throw new UnauthorizedException('challenge_expired');
+
+    entry.tries += 1;
+    if (entry.tries > 5) throw new UnauthorizedException('too_many_tries');
+
+    if (sha256(parsed.data.code) !== entry.codeHash) {
+      throw new UnauthorizedException('invalid_code');
+    }
+
+    // 인증 성공, 비밀번호 변경
+    const passwordHash = await bcrypt.hash(parsed.data.newPassword, 10);
+
+    await prisma.patient.updateMany({
+      where: { phoneE164: entry.phoneE164 },
+      data: { passwordHash },
+    });
+
+    otpStore.delete(parsed.data.challengeId);
+    log.log(`비밀번호 재설정 완료: ${entry.phoneE164}`);
+
+    return { ok: true };
   }
 }

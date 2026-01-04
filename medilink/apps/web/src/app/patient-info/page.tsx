@@ -29,7 +29,8 @@ export default function PatientInfoPage() {
         // 인증 확인
         const me = await authMe();
         if (!me.user && !cancelled) {
-          router.push("/login?returnTo=/patient-info");
+          // replace를 사용하여 히스토리에서 현재 페이지를 교체 (뒤로가기 무한 루프 방지)
+          router.replace("/login?returnTo=/patient-info");
           return;
         }
 

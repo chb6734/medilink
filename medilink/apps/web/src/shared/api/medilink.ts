@@ -153,6 +153,80 @@ export async function authPhoneVerify(params: {
   });
 }
 
+// ============= 비밀번호 기반 인증 API =============
+
+// 비밀번호 로그인
+export async function authLogin(params: { phoneE164: string; password: string }) {
+  return await fetchJson<{ ok: true; userId: string }>("/api/auth/login", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(params),
+  });
+}
+
+// 회원가입 1단계: 전화번호 인증 시작
+export async function authRegisterStart(params: { phoneE164: string }) {
+  return await fetchJson<{ challengeId: string; expiresAt: number }>(
+    "/api/auth/register/start",
+    {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(params),
+    }
+  );
+}
+
+// 회원가입 2단계: 인증번호 확인 및 비밀번호 설정
+export async function authRegisterComplete(params: {
+  challengeId: string;
+  code: string;
+  password: string;
+  name?: string;
+}) {
+  return await fetchJson<{ ok: true; userId: string }>(
+    "/api/auth/register/complete",
+    {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(params),
+    }
+  );
+}
+
+// 아이디(전화번호) 찾기
+export async function authFindPhone(params: { name: string; birthDate: string }) {
+  return await fetchJson<{ maskedPhone: string }>("/api/auth/find-phone", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(params),
+  });
+}
+
+// 비밀번호 재설정 1단계: 전화번호 인증 시작
+export async function authResetPasswordStart(params: { phoneE164: string }) {
+  return await fetchJson<{ challengeId: string; expiresAt: number }>(
+    "/api/auth/reset-password/start",
+    {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(params),
+    }
+  );
+}
+
+// 비밀번호 재설정 2단계: 인증번호 확인 및 새 비밀번호 설정
+export async function authResetPasswordComplete(params: {
+  challengeId: string;
+  code: string;
+  newPassword: string;
+}) {
+  return await fetchJson<{ ok: true }>("/api/auth/reset-password/complete", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(params),
+  });
+}
+
 export async function getDoctorSummary(params: { patientId: string }) {
   const qs = new URLSearchParams({ patientId: params.patientId });
   return await fetchJson<{

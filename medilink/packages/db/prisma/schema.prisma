@@ -53,6 +53,10 @@ model Patient {
   authProvider String?
   authSubject  String?
 
+  // 비밀번호 인증 (phone + password)
+  phoneE164     String?   @unique // E.164 형식 전화번호 (로그인 ID로 사용)
+  passwordHash  String?   // bcrypt 해시된 비밀번호
+
   // 환자 기본 정보
   name              String?   // 환자 이름
   birthDate         DateTime? // 생년월일 (주민번호 대신)
@@ -67,6 +71,8 @@ model Patient {
   shareTokens     ShareToken[]
   reminders       Reminder[]
   dailyConditions DailyCondition[]
+
+  @@index([name, birthDate]) // 아이디 찾기용 인덱스
 }
 
 model Facility {
