@@ -503,7 +503,8 @@ export class FacilitiesController {
         model: modelName,
         generationConfig: {
           temperature: 0.3,
-          maxOutputTokens: 512,
+          maxOutputTokens: 1024,
+          responseMimeType: 'application/json',
         },
       });
 
