@@ -71,8 +71,38 @@ export function DoctorView({
           }}
         >
           {/* Chief Complaint */}
-          {questionnaireData && (
+          {questionnaireData ? (
             <ChiefComplaintSection questionnaireData={questionnaireData} />
+          ) : (
+            <div
+              style={{
+                padding: "20px",
+                background: "white",
+                borderRadius: "12px",
+                border: `1px solid ${COLORS.border}`,
+              }}
+            >
+              <h3
+                style={{
+                  fontSize: "1rem",
+                  fontWeight: 600,
+                  color: COLORS.textSecondary,
+                  marginBottom: "8px",
+                }}
+              >
+                문진표 정보 없음
+              </h3>
+              <p
+                style={{
+                  fontSize: "0.875rem",
+                  color: COLORS.textMuted,
+                  lineHeight: "1.6",
+                  marginBottom: 0,
+                }}
+              >
+                환자가 아직 문진표를 작성하지 않았습니다.
+              </p>
+            </div>
           )}
 
           {/* AI Analysis */}

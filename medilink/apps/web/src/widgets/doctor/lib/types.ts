@@ -3,7 +3,7 @@ import type { QuestionnaireData } from "@/entities/questionnaire/model/types";
 
 export interface DoctorPatient {
   name: string;
-  phone: string;
+  phone?: string;
   age?: number;
   bloodType?: string;
   height?: number;

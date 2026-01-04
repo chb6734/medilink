@@ -136,6 +136,8 @@ export class ShareController {
           geminiSummary: r.geminiSummary ?? null,
           rawText: r.rawText ?? null,
         })),
+        questionnaire: null, // 인메모리 모드에서는 문진표 미지원
+        patient: null, // 인메모리 모드에서는 환자정보 미지원
       };
     }
 
@@ -162,12 +164,74 @@ export class ShareController {
       },
     });
 
-    const records = await prisma.prescriptionRecord.findMany({
-      where: { patientId: share.patientId },
-      orderBy: { createdAt: 'desc' },
-      take: 20,
-      include: { medItems: true, ocrExtraction: true },
-    });
+    const [records, latestIntakeForm, patient] = await Promise.all([
+      prisma.prescriptionRecord.findMany({
+        where: { patientId: share.patientId },
+        orderBy: { createdAt: 'desc' },
+        take: 20,
+        include: { medItems: true, ocrExtraction: true },
+      }),
+      prisma.intakeForm.findFirst({
+        where: { patientId: share.patientId },
+        orderBy: { createdAt: 'desc' },
+        include: { facility: true },
+      }),
+      prisma.patient.findUnique({
+        where: { id: share.patientId },
+        select: {
+          id: true,
+          birthDate: true,
+          bloodType: true,
+          heightCm: true,
+          weightKg: true,
+          allergies: true,
+          emergencyContact: true,
+        },
+      }),
+    ]);
+
+    // course enum을 한글 문자열로 변환
+    const courseToKorean = (course: string) => {
+      switch (course) {
+        case 'improving':
+          return '점점 호전';
+        case 'worsening':
+          return '점점 악화';
+        case 'no_change':
+          return '변화 없음';
+        default:
+          return '알 수 없음';
+      }
+    };
+
+    // adherence enum을 한글 문자열로 변환
+    const adherenceToKorean = (adherence: string) => {
+      switch (adherence) {
+        case 'yes':
+          return '잘 복용했어요';
+        case 'partial':
+          return '대부분 잘 복용했어요';
+        case 'no':
+          return '잘 복용하지 못했어요';
+        default:
+          return '해당 없음';
+      }
+    };
+
+    // 나이 계산
+    const calculateAge = (birthDate: Date | null): number | null => {
+      if (!birthDate) return null;
+      const today = new Date();
+      const age = today.getFullYear() - birthDate.getFullYear();
+      const monthDiff = today.getMonth() - birthDate.getMonth();
+      if (
+        monthDiff < 0 ||
+        (monthDiff === 0 && today.getDate() < birthDate.getDate())
+      ) {
+        return age - 1;
+      }
+      return age;
+    };
 
     return {
       patientId: share.patientId,
@@ -186,6 +250,33 @@ export class ShareController {
           (r.ocrExtraction?.fieldsJson as any)?.geminiSummary ?? null,
         rawText: r.ocrExtraction?.rawText ?? null,
       })),
+      questionnaire: latestIntakeForm
+        ? {
+            hospitalName: latestIntakeForm.facility?.name ?? '미지정',
+            chiefComplaint: latestIntakeForm.chiefComplaint,
+            symptomStart: latestIntakeForm.onsetText ?? '미입력',
+            symptomProgress: latestIntakeForm.courseNote
+              ? `${courseToKorean(latestIntakeForm.course)} - ${latestIntakeForm.courseNote}`
+              : courseToKorean(latestIntakeForm.course),
+            symptomDetail: latestIntakeForm.courseNote ?? undefined,
+            medicationCompliance: latestIntakeForm.adherenceReason
+              ? `${adherenceToKorean(latestIntakeForm.adherence)} - ${latestIntakeForm.adherenceReason}`
+              : adherenceToKorean(latestIntakeForm.adherence),
+            sideEffects: latestIntakeForm.adverseEvents ?? '없음',
+            allergies: latestIntakeForm.allergies ?? '없음',
+            patientNotes: '', // IntakeForm에 별도 메모 필드가 없음
+          }
+        : null,
+      patient: patient
+        ? {
+            age: calculateAge(patient.birthDate),
+            bloodType: patient.bloodType,
+            height: patient.heightCm,
+            weight: patient.weightKg,
+            allergies: patient.allergies,
+            emergencyContact: patient.emergencyContact,
+          }
+        : null,
     };
   }
 }

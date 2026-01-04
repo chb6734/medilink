@@ -18,9 +18,19 @@ interface ShareRecord {
   meds?: ShareMedication[];
 }
 
+export interface SharePatient {
+  age: number | null;
+  bloodType: string | null;
+  height: number | null;
+  weight: number | null;
+  allergies: string | null;
+  emergencyContact: string | null;
+}
+
 export interface ShareData {
   records: ShareRecord[];
-  questionnaire?: QuestionnaireData;
+  questionnaire?: QuestionnaireData | null;
+  patient?: SharePatient | null;
 }
 
 interface UseShareDataState {

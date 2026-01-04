@@ -29,20 +29,8 @@ export function DoctorShare({ token }: { token: string }) {
     }));
   }, [data]);
 
-  // NOTE: share API에 questionnaire가 붙기 전까지는 UI 데모를 위해 mock을 사용합니다.
-  const questionnaireData: QuestionnaireData | null =
-    data?.questionnaire ??
-    ({
-      hospitalName: "OO내과의원",
-      chiefComplaint: "발열 및 인후통이 3일째 지속됩니다.",
-      symptomStart: "3일 전",
-      symptomProgress: "점점 악화",
-      symptomDetail: "기침/가래 동반, 밤에 더 심함",
-      medicationCompliance: "대부분 잘 복용했어요",
-      sideEffects: "없음",
-      allergies: "없음",
-      patientNotes: "지난번에 같은 증상으로 항생제 복용 후 호전된 적이 있어요.",
-    } as QuestionnaireData);
+  // 실제 문진표 데이터 사용
+  const questionnaireData: QuestionnaireData | null = data?.questionnaire ?? null;
 
   if (loading) {
     return (
@@ -73,18 +61,23 @@ export function DoctorShare({ token }: { token: string }) {
     );
   }
 
+  // 환자 정보 (API에서 받은 데이터 사용)
+  const patientInfo = data?.patient
+    ? {
+        name: "환자", // 개인정보 보호를 위해 이름은 표시하지 않음
+        phone: data.patient.emergencyContact ?? undefined,
+        age: data.patient.age ?? undefined,
+        bloodType: data.patient.bloodType ?? undefined,
+        height: data.patient.height ?? undefined,
+        weight: data.patient.weight ?? undefined,
+      }
+    : undefined;
+
   return (
     <DoctorView
       records={records}
       questionnaireData={questionnaireData}
-      patient={{
-        name: "홍길동",
-        phone: "010-1234-5678",
-        age: 34,
-        bloodType: "A+",
-        height: 172,
-        weight: 68,
-      }}
+      patient={patientInfo}
     />
   );
 }
