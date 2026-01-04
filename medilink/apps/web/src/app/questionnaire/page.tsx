@@ -27,11 +27,14 @@ function QuestionnaireContent() {
 
         // 2. 새로운 증상: AI 진료과 추천 → 병원 선택
         if (visitType === "new") {
-          router.push(
-            `/hospital-select?visitType=new&symptoms=${encodeURIComponent(
-              data.chiefComplaint || ""
-            )}`
-          );
+          const params = new URLSearchParams({ visitType: "new" });
+          if (data.chiefComplaint) {
+            params.set("chiefComplaint", data.chiefComplaint);
+          }
+          if (data.symptomDetail) {
+            params.set("symptomDetail", data.symptomDetail);
+          }
+          router.push(`/hospital-select?${params.toString()}`);
           return;
         }
 

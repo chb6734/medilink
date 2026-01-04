@@ -6,13 +6,15 @@ import { searchFacilities, recommendSpecialty } from "@/shared/api";
 import type { Facility } from "@/shared/api/medilink";
 
 interface HospitalSearchWithAIProps {
-  symptoms?: string; // 증상 (AI 추천을 위해 사용)
+  chiefComplaint?: string; // 주요 증상
+  symptomDetail?: string; // 증상 상세 (선택)
   onSelect: (hospital: Facility) => void;
   initialKeyword?: string;
 }
 
 export function HospitalSearchWithAI({
-  symptoms,
+  chiefComplaint,
+  symptomDetail,
   onSelect,
   initialKeyword = "",
 }: HospitalSearchWithAIProps) {
@@ -25,7 +27,8 @@ export function HospitalSearchWithAI({
 
   // 증상 기반 AI 과별 추천
   useEffect(() => {
-    if (!symptoms || symptoms.trim().length < 2) {
+    // 주요 증상이 없으면 추천하지 않음
+    if (!chiefComplaint || chiefComplaint.trim().length < 2) {
       setRecommendedSpecialty(null);
       setAiReasoning(null);
       return;
@@ -36,7 +39,10 @@ export function HospitalSearchWithAI({
 
     (async () => {
       try {
-        const result = await recommendSpecialty({ symptoms });
+        const result = await recommendSpecialty({
+          chiefComplaint: chiefComplaint.trim(),
+          symptomDetail: symptomDetail?.trim() || undefined,
+        });
         if (!cancelled) {
           setRecommendedSpecialty(result.primarySpecialty);
           setAiReasoning(result.reasoning);
@@ -57,7 +63,7 @@ export function HospitalSearchWithAI({
     return () => {
       cancelled = true;
     };
-  }, [symptoms]);
+  }, [chiefComplaint, symptomDetail]);
 
   // 병원 검색 - 키워드로만 검색 (specialty 자동 필터링 제거)
   useEffect(() => {

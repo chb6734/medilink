@@ -49,7 +49,8 @@ function HospitalSelectContent() {
   const visitType = (searchParams.get("visitType") || "new") as
     | "new"
     | "followup";
-  const symptoms = searchParams.get("symptoms") || "";
+  const chiefComplaint = searchParams.get("chiefComplaint") || "";
+  const symptomDetail = searchParams.get("symptomDetail") || "";
   const rawRecordId = searchParams.get("recordId");
   // UUID 형식인지 간단히 확인 (빈 문자열, "undefined", "null" 등 제외)
   const recordId = rawRecordId && /^[0-9a-f-]{36}$/i.test(rawRecordId) ? rawRecordId : "";
@@ -67,7 +68,11 @@ function HospitalSelectContent() {
         if (cancelled) return;
         if (!me.user) {
           // 로그인 필요 - 현재 URL로 돌아올 수 있도록 returnTo 설정
-          const currentUrl = `/hospital-select?visitType=${visitType}&symptoms=${encodeURIComponent(symptoms)}${recordId ? `&recordId=${recordId}` : ""}`;
+          const returnParams = new URLSearchParams({ visitType });
+          if (chiefComplaint) returnParams.set("chiefComplaint", chiefComplaint);
+          if (symptomDetail) returnParams.set("symptomDetail", symptomDetail);
+          if (recordId) returnParams.set("recordId", recordId);
+          const currentUrl = `/hospital-select?${returnParams.toString()}`;
           router.push(`/login?returnTo=${encodeURIComponent(currentUrl)}`);
           return;
         }
@@ -82,7 +87,7 @@ function HospitalSelectContent() {
     return () => {
       cancelled = true;
     };
-  }, [router, visitType, symptoms, recordId]);
+  }, [router, visitType, chiefComplaint, symptomDetail, recordId]);
 
   // 이전 처방인 경우 이전 병원 가져오기
   useEffect(() => {
@@ -274,7 +279,8 @@ function HospitalSelectContent() {
         )}
 
         <HospitalSearchWithAI
-          symptoms={symptoms}
+          chiefComplaint={chiefComplaint}
+          symptomDetail={symptomDetail}
           onSelect={handleSelectHospital}
           initialKeyword={defaultHospitalName}
         />

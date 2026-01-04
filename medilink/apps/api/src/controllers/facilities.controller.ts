@@ -463,7 +463,8 @@ export class FacilitiesController {
   async recommendSpecialty(@Body() body: unknown) {
     // DTO 검증
     const RecommendSpecialtyDto = z.object({
-      symptoms: z.string().min(1, '증상을 입력해주세요'),
+      chiefComplaint: z.string().min(1, '주요 증상을 입력해주세요'),
+      symptomDetail: z.string().optional(),
     });
 
     const validation = RecommendSpecialtyDto.safeParse(body);
@@ -477,7 +478,7 @@ export class FacilitiesController {
       );
     }
 
-    const { symptoms } = validation.data;
+    const { chiefComplaint, symptomDetail } = validation.data;
 
     // AI 추천 기능 비활성화 시 기본값 반환
     if (process.env.GEMINI_ENABLED !== 'true') {
@@ -508,22 +509,44 @@ export class FacilitiesController {
         },
       });
 
+      // SPECIALTY_CODE_MAP에 정의된 모든 진료과목 목록 생성
+      const availableSpecialties = [
+        '내과',
+        '신경과',
+        '정신건강의학과',
+        '외과',
+        '정형외과',
+        '신경외과',
+        '흉부외과',
+        '성형외과',
+        '마취통증의학과',
+        '산부인과',
+        '소아청소년과',
+        '안과',
+        '이비인후과',
+        '피부과',
+        '비뇨의학과',
+        '재활의학과',
+        '가정의학과',
+        '응급의학과',
+        '치과',
+      ];
+
+      const specialtyList = availableSpecialties.map((s) => `- ${s}`).join('\n');
+
+      // 증상 정보 구성
+      const symptomSection = symptomDetail
+        ? `주요 증상: ${chiefComplaint}
+증상 상세: ${symptomDetail}`
+        : `주요 증상: ${chiefComplaint}`;
+
       const prompt = `당신은 의료 증상을 분석하여 적절한 진료 과목을 추천하는 AI 어시스턴트입니다.
 
-환자의 증상:
-${symptoms}
+환자의 증상 정보:
+${symptomSection}
 
 위 증상을 분석하여 다음 진료 과목 중 가장 적합한 과목을 추천해주세요:
-- 내과
-- 이비인후과
-- 안과
-- 정형외과
-- 피부과
-- 산부인과
-- 소아과
-- 정신건강의학과
-- 치과
-- 응급의학과
+${specialtyList}
 
 다음 JSON 형식으로만 응답해주세요 (다른 설명 없이):
 {
@@ -534,7 +557,9 @@ ${symptoms}
 
 주의:
 - 진단을 하지 마세요. 증상에 기반한 과목만 추천하세요.
-- 응답은 반드시 위 JSON 형식만 포함하세요.`;
+- 응답은 반드시 위 JSON 형식만 포함하세요.
+- 주요 증상과 증상 상세가 모두 있는 경우, 증상 상세에 더 구체적인 정보가 있다면 증상 상세를 우선적으로 고려하세요.
+- 증상 상세가 없는 경우, 주요 증상만으로 판단하세요.`;
 
       const resp = await model.generateContent({
         contents: [{ role: 'user', parts: [{ text: prompt }] }],

@@ -327,7 +327,8 @@ export async function searchFacilities(params: {
 }
 
 export async function recommendSpecialty(params: {
-  symptoms: string;
+  chiefComplaint: string; // 주요 증상
+  symptomDetail?: string; // 증상 상세 (선택)
 }): Promise<{
   recommendedSpecialties: string[];
   primarySpecialty: string;

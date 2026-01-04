@@ -10,6 +10,8 @@ import {
   Edit3,
   X,
   Sparkles,
+  Eye,
+  EyeOff,
 } from 'lucide-react';
 import { previewOcr, createRecord } from '@/shared/api';
 import { getOrCreatePatientId } from '@/entities/patient/lib/patientId';
@@ -22,6 +24,16 @@ interface OCRMedication {
   confidence: number | null;
 }
 
+interface TextAnnotation {
+  text: string;
+  boundingBox: {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  };
+}
+
 interface OCRResult {
   prescriptionDate?: string;
   dispensingDate?: string;
@@ -30,6 +42,8 @@ interface OCRResult {
   hospitalName?: string;
   completionDate?: string;
   confidence: number | null;
+  textAnnotations?: TextAnnotation[];
+  rawText?: string;
 }
 
 type Step = 'upload' | 'analyzing' | 'review';
@@ -46,6 +60,9 @@ function PrescriptionCaptureContent() {
   const [hospitalName, setHospitalName] = useState('');
   const [editingField, setEditingField] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [imageRef, setImageRef] = useState<HTMLImageElement | null>(null);
+  const [imageLoaded, setImageLoaded] = useState(false);
+  const [showHighlights, setShowHighlights] = useState(true);
 
   const handleBack = () => {
     if (step === 'review') {
@@ -154,6 +171,8 @@ function PrescriptionCaptureContent() {
         hospitalName: preview.hospitalName || undefined,
         completionDate,
         confidence: preview.overallConfidence,
+        textAnnotations: preview.textAnnotations,
+        rawText: preview.rawText,
       };
 
       setOcrResult(result);
@@ -329,7 +348,7 @@ function PrescriptionCaptureContent() {
         </div>
 
         <div style={{ padding: '24px' }}>
-          {/* Image Preview */}
+          {/* Image Preview with Highlights */}
           {imagePreview && (
             <div
               style={{
@@ -342,28 +361,61 @@ function PrescriptionCaptureContent() {
               }}
             >
               <img
+                ref={(el) => setImageRef(el)}
                 src={imagePreview}
                 alt="처방전"
                 style={{ width: '100%', display: 'block' }}
+                onLoad={() => setImageLoaded(true)}
               />
-              <button
-                onClick={handleBack}
+              {showHighlights && imageLoaded && ocrResult.textAnnotations && (
+                <ImageHighlights imageRef={imageRef} ocrResult={ocrResult} />
+              )}
+              <div
                 style={{
                   position: 'absolute',
                   top: '12px',
                   right: '12px',
-                  background: 'rgba(0,0,0,0.6)',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '8px',
-                  padding: '8px 12px',
-                  fontSize: '0.875rem',
-                  fontWeight: '600',
-                  cursor: 'pointer',
+                  display: 'flex',
+                  gap: '8px',
                 }}
               >
-                다시 촬영
-              </button>
+                {ocrResult.textAnnotations && ocrResult.textAnnotations.length > 0 && (
+                  <button
+                    onClick={() => setShowHighlights(!showHighlights)}
+                    style={{
+                      background: showHighlights ? 'rgba(168, 85, 247, 0.9)' : 'rgba(0,0,0,0.6)',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '8px',
+                      padding: '8px 12px',
+                      fontSize: '0.875rem',
+                      fontWeight: '600',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                    }}
+                  >
+                    {showHighlights ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
+                    {showHighlights ? '강조' : '숨김'}
+                  </button>
+                )}
+                <button
+                  onClick={handleBack}
+                  style={{
+                    background: 'rgba(0,0,0,0.6)',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '8px',
+                    padding: '8px 12px',
+                    fontSize: '0.875rem',
+                    fontWeight: '600',
+                    cursor: 'pointer',
+                  }}
+                >
+                  다시 촬영
+                </button>
+              </div>
             </div>
           )}
 
@@ -794,6 +846,381 @@ function PrescriptionCaptureContent() {
         </div>
       </div>
     </div>
+  );
+}
+
+// ImageHighlights Component for displaying text position highlights
+interface ImageHighlightsProps {
+  imageRef: HTMLImageElement | null;
+  ocrResult: OCRResult;
+}
+
+function ImageHighlights({ imageRef, ocrResult }: ImageHighlightsProps) {
+  const canvasRef = React.useRef<HTMLCanvasElement>(null);
+
+  React.useEffect(() => {
+    if (!imageRef || !canvasRef.current || !ocrResult) return;
+
+    if (
+      !imageRef.complete ||
+      imageRef.naturalWidth === 0 ||
+      imageRef.naturalHeight === 0
+    ) {
+      return;
+    }
+
+    const canvas = canvasRef.current;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    const displayWidth = imageRef.offsetWidth || imageRef.clientWidth;
+    const displayHeight = imageRef.offsetHeight || imageRef.clientHeight;
+
+    if (displayWidth === 0 || displayHeight === 0) {
+      return;
+    }
+
+    canvas.width = displayWidth;
+    canvas.height = displayHeight;
+
+    const imageNaturalWidth = imageRef.naturalWidth;
+    const imageNaturalHeight = imageRef.naturalHeight;
+
+    if (imageNaturalWidth === 0 || imageNaturalHeight === 0) {
+      return;
+    }
+
+    const scaleX = displayWidth / imageNaturalWidth;
+    const scaleY = displayHeight / imageNaturalHeight;
+
+    const fieldColors: Record<string, string> = {
+      prescriptionDate: '#10B981',
+      dispensingDate: '#F59E0B',
+      daysSupply: '#EC4899',
+      hospitalName: '#EF4444',
+      completionDate: '#6366F1',
+      medications: '#A855F7',
+    };
+
+    const findTextPositionFromAnnotations = (
+      searchText: string
+    ): { x: number; y: number; width: number; height: number } | null => {
+      if (
+        !ocrResult.textAnnotations ||
+        !searchText ||
+        ocrResult.textAnnotations.length === 0
+      ) {
+        return null;
+      }
+
+      const normalizeText = (txt: string) => {
+        return txt
+          .replace(/\./g, '')
+          .replace(/-/g, '')
+          .replace(/\s/g, '')
+          .replace(/일/g, '')
+          .toLowerCase()
+          .trim();
+      };
+
+      const normalizedSearch = normalizeText(searchText);
+      let bestMatch: {
+        annotation: (typeof ocrResult.textAnnotations)[0];
+        score: number;
+        combined?: Array<(typeof ocrResult.textAnnotations)[0]>;
+      } | null = null;
+
+      for (const annotation of ocrResult.textAnnotations) {
+        const normalizedAnnotation = normalizeText(annotation.text);
+
+        if (normalizedAnnotation === normalizedSearch) {
+          bestMatch = { annotation, score: 100 };
+          break;
+        }
+
+        if (
+          normalizedAnnotation.includes(normalizedSearch) &&
+          normalizedSearch.length >= 2
+        ) {
+          const score =
+            (normalizedSearch.length / Math.max(normalizedAnnotation.length, 1)) * 100;
+          if (!bestMatch || score > bestMatch.score) {
+            bestMatch = { annotation, score };
+          }
+        }
+
+        if (
+          normalizedSearch.includes(normalizedAnnotation) &&
+          normalizedAnnotation.length >= 2
+        ) {
+          const score =
+            (normalizedAnnotation.length / Math.max(normalizedSearch.length, 1)) * 90;
+          if (!bestMatch || score > bestMatch.score) {
+            bestMatch = { annotation, score };
+          }
+        }
+      }
+
+      // Combine adjacent annotations
+      if (!bestMatch || bestMatch.score < 70) {
+        for (let i = 0; i < ocrResult.textAnnotations.length - 1; i++) {
+          const combined = [
+            ocrResult.textAnnotations[i],
+            ocrResult.textAnnotations[i + 1],
+          ];
+          const combinedText = combined.map((a) => a.text).join('');
+          const normalizedCombined = normalizeText(combinedText);
+
+          if (
+            normalizedCombined.includes(normalizedSearch) ||
+            normalizedSearch.includes(normalizedCombined)
+          ) {
+            const xs = combined.flatMap((a) => [
+              a.boundingBox.x,
+              a.boundingBox.x + a.boundingBox.width,
+            ]);
+            const ys = combined.flatMap((a) => [
+              a.boundingBox.y,
+              a.boundingBox.y + a.boundingBox.height,
+            ]);
+
+            const combinedBbox = {
+              x: Math.min(...xs),
+              y: Math.min(...ys),
+              width: Math.max(...xs) - Math.min(...xs),
+              height: Math.max(...ys) - Math.min(...ys),
+            };
+
+            const score = Math.min(
+              (normalizedSearch.length / Math.max(normalizedCombined.length, 1)) * 100,
+              (normalizedCombined.length / Math.max(normalizedSearch.length, 1)) * 90
+            );
+
+            if (!bestMatch || score > bestMatch.score) {
+              bestMatch = {
+                annotation: {
+                  ...combined[0],
+                  text: combinedText,
+                  boundingBox: combinedBbox,
+                },
+                score,
+                combined,
+              };
+            }
+          }
+        }
+      }
+
+      if (bestMatch && bestMatch.score > 20) {
+        const { annotation, combined } = bestMatch;
+        let bbox = annotation.boundingBox;
+
+        if (combined && combined.length > 1) {
+          const xs = combined.flatMap((a) => [
+            a.boundingBox.x,
+            a.boundingBox.x + a.boundingBox.width,
+          ]);
+          const ys = combined.flatMap((a) => [
+            a.boundingBox.y,
+            a.boundingBox.y + a.boundingBox.height,
+          ]);
+
+          bbox = {
+            x: Math.min(...xs),
+            y: Math.min(...ys),
+            width: Math.max(...xs) - Math.min(...xs),
+            height: Math.max(...ys) - Math.min(...ys),
+          };
+        }
+
+        const paddingX = Math.max(bbox.width * 0.1, 4);
+        const paddingY = Math.max(bbox.height * 0.2, 3);
+
+        const scaledX = bbox.x * scaleX;
+        const scaledY = bbox.y * scaleY;
+        const scaledWidth = bbox.width * scaleX;
+        const scaledHeight = bbox.height * scaleY;
+        const scaledPaddingX = paddingX * scaleX;
+        const scaledPaddingY = paddingY * scaleY;
+
+        const result = {
+          x: Math.max(0, scaledX - scaledPaddingX),
+          y: Math.max(0, scaledY - scaledPaddingY),
+          width: Math.min(
+            scaledWidth + scaledPaddingX * 2,
+            displayWidth - Math.max(0, scaledX - scaledPaddingX)
+          ),
+          height: Math.min(
+            scaledHeight + scaledPaddingY * 2,
+            displayHeight - Math.max(0, scaledY - scaledPaddingY)
+          ),
+        };
+
+        result.width = Math.max(result.width, 30);
+        result.height = Math.max(result.height, 20);
+
+        return result;
+      }
+
+      return null;
+    };
+
+    const rawText = ocrResult.rawText || '';
+    const findTextPosition = (
+      searchText: string
+    ): { x: number; y: number; width: number; height: number } | null => {
+      const annotationPos = findTextPositionFromAnnotations(searchText);
+      if (annotationPos) return annotationPos;
+
+      if (!searchText || !rawText) return null;
+
+      const normalizedSearch = searchText.replace(/\./g, '').replace(/-/g, '');
+      const normalizedRaw = rawText.replace(/\./g, '').replace(/-/g, '');
+
+      const index = normalizedRaw.indexOf(normalizedSearch);
+      if (index === -1) return null;
+
+      const textRatio = index / normalizedRaw.length;
+      const textLengthRatio = normalizedSearch.length / normalizedRaw.length;
+
+      const x = canvas.width * 0.1;
+      const y = canvas.height * (0.1 + textRatio * 0.7);
+      const width = canvas.width * Math.min(textLengthRatio * 0.8, 0.6);
+      const height = canvas.height * 0.03;
+
+      return { x, y, width, height };
+    };
+
+    const drawHighlight = (
+      text: string,
+      color: string,
+      position: { x: number; y: number; width: number; height: number } | null
+    ) => {
+      if (!text || !position || position.width <= 0 || position.height <= 0) return;
+
+      ctx.fillStyle = color + '30';
+      ctx.fillRect(position.x, position.y, position.width, position.height);
+
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 4;
+      ctx.setLineDash([]);
+      ctx.strokeRect(position.x, position.y, position.width, position.height);
+
+      const cornerSize = 8;
+      ctx.lineWidth = 3;
+      // Left top corner
+      ctx.beginPath();
+      ctx.moveTo(position.x, position.y + cornerSize);
+      ctx.lineTo(position.x, position.y);
+      ctx.lineTo(position.x + cornerSize, position.y);
+      ctx.stroke();
+      // Right top corner
+      ctx.beginPath();
+      ctx.moveTo(position.x + position.width - cornerSize, position.y);
+      ctx.lineTo(position.x + position.width, position.y);
+      ctx.lineTo(position.x + position.width, position.y + cornerSize);
+      ctx.stroke();
+      // Left bottom corner
+      ctx.beginPath();
+      ctx.moveTo(position.x, position.y + position.height - cornerSize);
+      ctx.lineTo(position.x, position.y + position.height);
+      ctx.lineTo(position.x + cornerSize, position.y + position.height);
+      ctx.stroke();
+      // Right bottom corner
+      ctx.beginPath();
+      ctx.moveTo(position.x + position.width - cornerSize, position.y + position.height);
+      ctx.lineTo(position.x + position.width, position.y + position.height);
+      ctx.lineTo(position.x + position.width, position.y + position.height - cornerSize);
+      ctx.stroke();
+    };
+
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    // Draw highlights for each field
+    if (ocrResult.prescriptionDate) {
+      const dateVariants = [
+        ocrResult.prescriptionDate,
+        ocrResult.prescriptionDate.replace(/\./g, '-'),
+        ocrResult.prescriptionDate.replace(/\./g, ''),
+      ];
+      for (const variant of dateVariants) {
+        const pos = findTextPosition(variant);
+        if (pos) {
+          drawHighlight(ocrResult.prescriptionDate, fieldColors.prescriptionDate, pos);
+          break;
+        }
+      }
+    }
+
+    if (ocrResult.dispensingDate) {
+      const dateVariants = [
+        ocrResult.dispensingDate,
+        ocrResult.dispensingDate.replace(/\./g, '-'),
+        ocrResult.dispensingDate.replace(/\./g, ''),
+      ];
+      for (const variant of dateVariants) {
+        const pos = findTextPosition(variant);
+        if (pos) {
+          drawHighlight(ocrResult.dispensingDate, fieldColors.dispensingDate, pos);
+          break;
+        }
+      }
+    }
+
+    if (ocrResult.hospitalName) {
+      const pos = findTextPosition(ocrResult.hospitalName);
+      if (pos) {
+        drawHighlight(ocrResult.hospitalName, fieldColors.hospitalName, pos);
+      }
+    }
+
+    if (ocrResult.daysSupply) {
+      const daysVariants = [`${ocrResult.daysSupply}일`, String(ocrResult.daysSupply)];
+      for (const variant of daysVariants) {
+        const pos = findTextPosition(variant);
+        if (pos) {
+          drawHighlight(`${ocrResult.daysSupply}일`, fieldColors.daysSupply, pos);
+          break;
+        }
+      }
+    }
+
+    if (ocrResult.medications && ocrResult.medications.length > 0) {
+      ocrResult.medications.forEach((med) => {
+        const medName = med.name;
+        const medNameWithoutSuffix = medName.replace(/정|캡슐|앰플|시럽|연고|점안액|주사액|과립|포/g, '');
+
+        const variants = [
+          medName,
+          medNameWithoutSuffix,
+          medName.replace(/\s/g, ''),
+        ].filter((v) => v.length >= 2);
+
+        for (const variant of variants) {
+          const pos = findTextPosition(variant);
+          if (pos) {
+            drawHighlight(medName, fieldColors.medications, pos);
+            break;
+          }
+        }
+      });
+    }
+  }, [imageRef, ocrResult]);
+
+  if (!imageRef) return null;
+
+  return (
+    <canvas
+      ref={canvasRef}
+      style={{
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        width: '100%',
+        height: '100%',
+        pointerEvents: 'none',
+      }}
+    />
   );
 }
 
