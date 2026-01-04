@@ -92,6 +92,17 @@ export function DoctorShare({ token }: { token: string }) {
     );
   }
 
+  // AI 분석 데이터 로그 출력
+  console.log("=== AI 환자 상태 분석 데이터 ===");
+  console.log("aiAnalysis:", data?.aiAnalysis);
+  console.log("aiAnalysis length:", data?.aiAnalysis?.length);
+  console.log("medicationHistory:", data?.medicationHistory);
+  console.log("currentMedications:", data?.currentMedications);
+  console.log("questionnaire:", data?.questionnaire);
+  console.log("patient:", data?.patient);
+  console.log("records count:", data?.records?.length);
+  console.log("================================");
+
   // 환자 정보 (API에서 받은 데이터 사용)
   const patientInfo = data?.patient
     ? {
