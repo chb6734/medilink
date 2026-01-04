@@ -82,16 +82,6 @@ export default function DoctorPreviewPage() {
         });
 
         if (summaryData) {
-          // AI 분석 데이터 로그 출력
-          console.log("=== [홈 미리보기] AI 환자 상태 분석 데이터 ===");
-          console.log("aiAnalysis:", summaryData.aiAnalysis);
-          console.log("aiAnalysis length:", summaryData.aiAnalysis?.length);
-          console.log("medicationHistory:", summaryData.medicationHistory);
-          console.log("currentMedications:", summaryData.currentMedications);
-          console.log("intakeForms:", summaryData.intakeForms);
-          console.log("records count:", summaryData.records?.length);
-          console.log("=============================================");
-
           setRecords(summaryData.records);
           setCurrentMedications(summaryData.currentMedications || []);
           if (summaryData.intakeForms.length > 0) {
