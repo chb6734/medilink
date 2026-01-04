@@ -3,8 +3,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import {
   authMe,
   authLogin,
-  authRegisterStart,
-  authRegisterComplete,
+  authRegister,
   authFindPhone,
   authResetPasswordStart,
   authResetPasswordComplete,
@@ -155,30 +154,8 @@ export function AuthView({
     }
   };
 
-  // 회원가입 - 인증번호 요청
-  const handleRegisterStart = async () => {
-    setError(null);
-    setActionLoading(true);
-    try {
-      const r = await authRegisterStart({
-        phoneE164: toE164Kr(phone),
-      });
-      setChallengeId(r.challengeId);
-      setSuccess("인증번호가 발송되었습니다.");
-    } catch (e) {
-      const msg = getErrorMessage(e);
-      if (msg.includes("phone_already_registered")) {
-        setError("이미 가입된 전화번호입니다.");
-      } else {
-        setError(msg);
-      }
-    } finally {
-      setActionLoading(false);
-    }
-  };
-
-  // 회원가입 - 완료
-  const handleRegisterComplete = async () => {
+  // 회원가입
+  const handleRegister = async () => {
     if (password !== confirmPassword) {
       setError("비밀번호가 일치하지 않습니다.");
       return;
@@ -190,20 +167,16 @@ export function AuthView({
     setError(null);
     setActionLoading(true);
     try {
-      await authRegisterComplete({
-        challengeId: challengeId!,
-        code,
+      await authRegister({
+        phoneE164: toE164Kr(phone),
         password,
         name: name || undefined,
       });
       await refresh();
     } catch (e) {
       const msg = getErrorMessage(e);
-      if (msg.includes("invalid_code")) {
-        setError("인증번호가 올바르지 않습니다.");
-      } else if (msg.includes("challenge_expired")) {
-        setError("인증번호가 만료되었습니다. 다시 시도해주세요.");
-        setChallengeId(null);
+      if (msg.includes("phone_already_registered")) {
+        setError("이미 가입된 전화번호입니다.");
       } else {
         setError(msg);
       }
@@ -848,182 +821,117 @@ export function AuthView({
                 maxLength={13}
                 className="input-field"
                 style={{ fontSize: "1.0625rem" }}
-                disabled={!!challengeId || isLoading}
+                disabled={isLoading}
               />
             </div>
 
-            {!challengeId ? (
-              <button
-                disabled={isLoading || !phone}
-                className="btn-primary"
+            {/* Password */}
+            <div>
+              <label
                 style={{
-                  width: "100%",
-                  marginTop: "24px",
-                  opacity: isLoading || !phone ? 0.6 : 1,
-                  cursor: isLoading || !phone ? "not-allowed" : "pointer",
+                  display: "block",
+                  marginBottom: "10px",
+                  color: "var(--color-text-primary)",
+                  fontSize: "0.9375rem",
+                  fontWeight: "600",
                 }}
-                onClick={handleRegisterStart}
               >
-                {actionLoading ? "발송 중..." : "인증번호 받기"}
-              </button>
-            ) : (
-              <>
-                {/* OTP */}
-                <div>
-                  <label
-                    style={{
-                      display: "block",
-                      marginBottom: "10px",
-                      color: "var(--color-text-primary)",
-                      fontSize: "0.9375rem",
-                      fontWeight: "600",
-                    }}
-                  >
-                    인증번호
-                  </label>
-                  <div style={{ position: "relative" }}>
-                    <input
-                      type={showCode ? "text" : "password"}
-                      value={code}
-                      onChange={(e) => setCode(e.target.value)}
-                      placeholder="인증번호 6자리"
-                      className="input-field"
-                      style={{ fontSize: "1.0625rem", paddingRight: "52px" }}
-                      disabled={isLoading}
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowCode((v) => !v)}
-                      style={{
-                        position: "absolute",
-                        right: "16px",
-                        top: "50%",
-                        transform: "translateY(-50%)",
-                        background: "transparent",
-                        border: "none",
-                        cursor: "pointer",
-                        color: "var(--color-text-tertiary)",
-                        padding: "8px",
-                      }}
-                    >
-                      {showCode ? (
-                        <EyeOff className="w-5 h-5" />
-                      ) : (
-                        <Eye className="w-5 h-5" />
-                      )}
-                    </button>
-                  </div>
-                </div>
-
-                {/* Password */}
-                <div>
-                  <label
-                    style={{
-                      display: "block",
-                      marginBottom: "10px",
-                      color: "var(--color-text-primary)",
-                      fontSize: "0.9375rem",
-                      fontWeight: "600",
-                    }}
-                  >
-                    비밀번호
-                  </label>
-                  <div style={{ position: "relative" }}>
-                    <input
-                      type={showPassword ? "text" : "password"}
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      placeholder="비밀번호 (6자 이상)"
-                      className="input-field"
-                      style={{ fontSize: "1.0625rem", paddingRight: "52px" }}
-                      disabled={isLoading}
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowPassword((v) => !v)}
-                      style={{
-                        position: "absolute",
-                        right: "16px",
-                        top: "50%",
-                        transform: "translateY(-50%)",
-                        background: "transparent",
-                        border: "none",
-                        cursor: "pointer",
-                        color: "var(--color-text-tertiary)",
-                        padding: "8px",
-                      }}
-                    >
-                      {showPassword ? (
-                        <EyeOff className="w-5 h-5" />
-                      ) : (
-                        <Eye className="w-5 h-5" />
-                      )}
-                    </button>
-                  </div>
-                </div>
-
-                {/* Confirm Password */}
-                <div>
-                  <label
-                    style={{
-                      display: "block",
-                      marginBottom: "10px",
-                      color: "var(--color-text-primary)",
-                      fontSize: "0.9375rem",
-                      fontWeight: "600",
-                    }}
-                  >
-                    비밀번호 확인
-                  </label>
-                  <div style={{ position: "relative" }}>
-                    <input
-                      type={showConfirmPassword ? "text" : "password"}
-                      value={confirmPassword}
-                      onChange={(e) => setConfirmPassword(e.target.value)}
-                      placeholder="비밀번호 재입력"
-                      className="input-field"
-                      style={{ fontSize: "1.0625rem", paddingRight: "52px" }}
-                      disabled={isLoading}
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowConfirmPassword((v) => !v)}
-                      style={{
-                        position: "absolute",
-                        right: "16px",
-                        top: "50%",
-                        transform: "translateY(-50%)",
-                        background: "transparent",
-                        border: "none",
-                        cursor: "pointer",
-                        color: "var(--color-text-tertiary)",
-                        padding: "8px",
-                      }}
-                    >
-                      {showConfirmPassword ? (
-                        <EyeOff className="w-5 h-5" />
-                      ) : (
-                        <Eye className="w-5 h-5" />
-                      )}
-                    </button>
-                  </div>
-                </div>
-
+                비밀번호
+              </label>
+              <div style={{ position: "relative" }}>
+                <input
+                  type={showPassword ? "text" : "password"}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="비밀번호 (6자 이상)"
+                  className="input-field"
+                  style={{ fontSize: "1.0625rem", paddingRight: "52px" }}
+                  disabled={isLoading}
+                />
                 <button
-                  disabled={isLoading || !code || !password || !confirmPassword}
-                  className="btn-primary"
+                  type="button"
+                  onClick={() => setShowPassword((v) => !v)}
                   style={{
-                    width: "100%",
-                    marginTop: "24px",
-                    opacity: isLoading || !code || !password || !confirmPassword ? 0.6 : 1,
-                    cursor: isLoading || !code || !password || !confirmPassword ? "not-allowed" : "pointer",
+                    position: "absolute",
+                    right: "16px",
+                    top: "50%",
+                    transform: "translateY(-50%)",
+                    background: "transparent",
+                    border: "none",
+                    cursor: "pointer",
+                    color: "var(--color-text-tertiary)",
+                    padding: "8px",
                   }}
-                  onClick={handleRegisterComplete}
                 >
-                  {actionLoading ? "처리 중..." : "가입 완료"}
+                  {showPassword ? (
+                    <EyeOff className="w-5 h-5" />
+                  ) : (
+                    <Eye className="w-5 h-5" />
+                  )}
                 </button>
-              </>
-            )}
+              </div>
+            </div>
+
+            {/* Confirm Password */}
+            <div>
+              <label
+                style={{
+                  display: "block",
+                  marginBottom: "10px",
+                  color: "var(--color-text-primary)",
+                  fontSize: "0.9375rem",
+                  fontWeight: "600",
+                }}
+              >
+                비밀번호 확인
+              </label>
+              <div style={{ position: "relative" }}>
+                <input
+                  type={showConfirmPassword ? "text" : "password"}
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  placeholder="비밀번호 재입력"
+                  className="input-field"
+                  style={{ fontSize: "1.0625rem", paddingRight: "52px" }}
+                  disabled={isLoading}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowConfirmPassword((v) => !v)}
+                  style={{
+                    position: "absolute",
+                    right: "16px",
+                    top: "50%",
+                    transform: "translateY(-50%)",
+                    background: "transparent",
+                    border: "none",
+                    cursor: "pointer",
+                    color: "var(--color-text-tertiary)",
+                    padding: "8px",
+                  }}
+                >
+                  {showConfirmPassword ? (
+                    <EyeOff className="w-5 h-5" />
+                  ) : (
+                    <Eye className="w-5 h-5" />
+                  )}
+                </button>
+              </div>
+            </div>
+
+            <button
+              disabled={isLoading || !phone || !password || !confirmPassword}
+              className="btn-primary"
+              style={{
+                width: "100%",
+                marginTop: "24px",
+                opacity: isLoading || !phone || !password || !confirmPassword ? 0.6 : 1,
+                cursor: isLoading || !phone || !password || !confirmPassword ? "not-allowed" : "pointer",
+              }}
+              onClick={handleRegister}
+            >
+              {actionLoading ? "처리 중..." : "가입하기"}
+            </button>
           </div>
         )}
 

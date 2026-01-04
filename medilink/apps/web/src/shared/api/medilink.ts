@@ -164,33 +164,17 @@ export async function authLogin(params: { phoneE164: string; password: string })
   });
 }
 
-// 회원가입 1단계: 전화번호 인증 시작
-export async function authRegisterStart(params: { phoneE164: string }) {
-  return await fetchJson<{ challengeId: string; expiresAt: number }>(
-    "/api/auth/register/start",
-    {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify(params),
-    }
-  );
-}
-
-// 회원가입 2단계: 인증번호 확인 및 비밀번호 설정
-export async function authRegisterComplete(params: {
-  challengeId: string;
-  code: string;
+// 회원가입
+export async function authRegister(params: {
+  phoneE164: string;
   password: string;
   name?: string;
 }) {
-  return await fetchJson<{ ok: true; userId: string }>(
-    "/api/auth/register/complete",
-    {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify(params),
-    }
-  );
+  return await fetchJson<{ ok: true; userId: string }>("/api/auth/register", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(params),
+  });
 }
 
 // 아이디(전화번호) 찾기

@@ -382,15 +382,21 @@ export class AuthController {
     return res.json({ ok: true });
   }
 
-  // ============= 회원가입 (전화번호 인증 후 비밀번호 설정) =============
-
-  // 1단계: 전화번호로 인증번호 발송 (회원가입용)
-  @Post('/api/auth/register/start')
-  async registerStart(@Body() body: unknown) {
+  // ============= 회원가입 (전화번호 + 비밀번호) =============
+  @Post('/api/auth/register')
+  async register(
+    @Req() req: Request,
+    @Res() res: Response,
+    @Body() body: unknown,
+  ) {
     if (!isAuthEnabled()) throw new NotFoundException('auth_disabled');
 
     const parsed = z
-      .object({ phoneE164: z.string().min(8).max(20) })
+      .object({
+        phoneE164: z.string().min(8).max(20),
+        password: z.string().min(6).max(100),
+        name: z.string().min(1).max(50).optional(),
+      })
       .safeParse(body);
     if (!parsed.success) throw new BadRequestException('invalid_body');
 
@@ -402,92 +408,24 @@ export class AuthController {
       throw new ConflictException('phone_already_registered');
     }
 
-    const challengeId = crypto.randomUUID();
-    const code = randomOtpCode();
-    const expiresAt = Date.now() + 5 * 60 * 1000;
-    otpStore.set(challengeId, {
-      phoneE164: parsed.data.phoneE164,
-      codeHash: sha256(code),
-      expiresAt,
-      tries: 0,
-    });
-
-    // SMS 발송
-    const provider = (process.env.SMS_PROVIDER ?? 'dev').toLowerCase();
-    if (provider === 'dev') {
-      log.warn(`DEV_OTP_CODE (register) phone=${parsed.data.phoneE164} code=${code}`);
-    } else if (provider === 'twilio') {
-      const accountSid = process.env.TWILIO_ACCOUNT_SID;
-      const authToken = process.env.TWILIO_AUTH_TOKEN;
-      const from = process.env.TWILIO_FROM;
-      if (!accountSid || !authToken || !from) {
-        throw new UnauthorizedException('sms_provider_not_configured');
-      }
-      const { default: twilio } = await import('twilio');
-      const client = twilio(accountSid, authToken);
-      await client.messages.create({
-        to: parsed.data.phoneE164,
-        from,
-        body: `[MediLink] 회원가입 인증번호: ${code} (5분 내 입력)`,
-      });
-    } else {
-      throw new UnauthorizedException('unsupported_sms_provider');
-    }
-
-    return { challengeId, expiresAt };
-  }
-
-  // 2단계: 인증번호 확인 및 회원가입 완료
-  @Post('/api/auth/register/complete')
-  async registerComplete(
-    @Req() req: Request,
-    @Res() res: Response,
-    @Body() body: unknown,
-  ) {
-    if (!isAuthEnabled()) throw new NotFoundException('auth_disabled');
-
-    const parsed = z
-      .object({
-        challengeId: z.string().uuid(),
-        code: z.string().min(4).max(10),
-        password: z.string().min(6).max(100),
-        name: z.string().min(1).max(50).optional(),
-      })
-      .safeParse(body);
-    if (!parsed.success) throw new BadRequestException('invalid_body');
-
-    const entry = otpStore.get(parsed.data.challengeId);
-    if (!entry) throw new NotFoundException('challenge_not_found');
-    if (Date.now() > entry.expiresAt)
-      throw new UnauthorizedException('challenge_expired');
-
-    entry.tries += 1;
-    if (entry.tries > 5) throw new UnauthorizedException('too_many_tries');
-
-    if (sha256(parsed.data.code) !== entry.codeHash) {
-      throw new UnauthorizedException('invalid_code');
-    }
-
-    // 인증 성공, 회원 생성
+    // 회원 생성
     const passwordHash = await bcrypt.hash(parsed.data.password, 10);
 
     const patient = await prisma.patient.create({
       data: {
-        phoneE164: entry.phoneE164,
+        phoneE164: parsed.data.phoneE164,
         passwordHash,
         name: parsed.data.name || null,
         authProvider: 'password',
-        authSubject: entry.phoneE164,
+        authSubject: parsed.data.phoneE164,
       },
     });
-
-    otpStore.delete(parsed.data.challengeId);
 
     // JWT 발급
     const jwtPayload = {
       userId: patient.id,
       provider: 'password' as const,
-      subject: entry.phoneE164,
+      subject: parsed.data.phoneE164,
       displayName: parsed.data.name,
     };
     const token = generateToken(jwtPayload);
@@ -505,7 +443,7 @@ export class AuthController {
       maxAge: 7 * 24 * 60 * 60 * 1000,
     });
 
-    log.log(`회원가입 완료: ${entry.phoneE164}`);
+    log.log(`회원가입 완료: ${parsed.data.phoneE164}`);
     return res.json({ ok: true, userId: patient.id });
   }
 
