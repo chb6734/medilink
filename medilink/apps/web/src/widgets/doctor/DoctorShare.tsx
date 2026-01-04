@@ -3,6 +3,7 @@ import { DoctorView } from "./DoctorView";
 import type { PrescriptionRecord } from "@/entities/record/model/types";
 import type { QuestionnaireData } from "@/entities/questionnaire/model/types";
 import { useShareData } from "./lib/useShareData";
+import type { MedicationHistoryItem, CurrentMedication } from "./lib/types";
 
 export function DoctorShare({ token }: { token: string }) {
   const { loading, error, data } = useShareData(token);
@@ -12,7 +13,7 @@ export function DoctorShare({ token }: { token: string }) {
     return data.records.map((r) => ({
       id: r.id,
       prescriptionDate: new Date(r.createdAt).toISOString().slice(0, 10),
-      hospitalName: undefined,
+      hospitalName: r.facilityName ?? undefined,
       pharmacyName: undefined,
       chiefComplaint: r.chiefComplaint ?? undefined,
       diagnosis: r.doctorDiagnosis ?? undefined,
@@ -20,10 +21,10 @@ export function DoctorShare({ token }: { token: string }) {
       medications: (r.meds ?? []).map((m, idx) => ({
         id: `${r.id}-${idx}`,
         name: m.nameRaw,
-        dosage: "",
-        frequency: "",
+        dosage: m.dose ?? "",
+        frequency: m.frequency ?? "",
         startDate: new Date(r.createdAt).toISOString().slice(0, 10),
-        prescribedBy: "",
+        prescribedBy: r.facilityName ?? "",
         confidence: m.needsVerification ? 70 : undefined,
       })),
     }));
@@ -31,6 +32,36 @@ export function DoctorShare({ token }: { token: string }) {
 
   // 실제 문진표 데이터 사용
   const questionnaireData: QuestionnaireData | null = data?.questionnaire ?? null;
+
+  // 복약 기록 변환
+  const medicationHistory: MedicationHistoryItem[] = useMemo(() => {
+    if (!data?.medicationHistory) return [];
+    return data.medicationHistory.map((h) => ({
+      date: h.date,
+      taken: h.taken,
+      takenCount: h.takenCount,
+      totalCount: h.totalCount,
+      symptomLevel: h.symptomLevel,
+      notes: h.notes,
+    }));
+  }, [data]);
+
+  // 현재 복용중인 약 변환
+  const currentMedications: CurrentMedication[] = useMemo(() => {
+    if (!data?.currentMedications) return [];
+    return data.currentMedications.map((m) => ({
+      id: m.id,
+      name: m.name,
+      dosage: m.dosage,
+      frequency: m.frequency,
+      startDate: m.startDate,
+      endDate: m.endDate,
+      prescribedBy: m.prescribedBy,
+      confidence: m.confidence,
+      recordId: m.recordId,
+      recordDate: m.recordDate,
+    }));
+  }, [data]);
 
   if (loading) {
     return (
@@ -64,12 +95,13 @@ export function DoctorShare({ token }: { token: string }) {
   // 환자 정보 (API에서 받은 데이터 사용)
   const patientInfo = data?.patient
     ? {
-        name: "환자", // 개인정보 보호를 위해 이름은 표시하지 않음
+        name: data.patient.name ?? "환자",
         phone: data.patient.emergencyContact ?? undefined,
         age: data.patient.age ?? undefined,
         bloodType: data.patient.bloodType ?? undefined,
         height: data.patient.height ?? undefined,
         weight: data.patient.weight ?? undefined,
+        allergies: data.patient.allergies ?? undefined,
       }
     : undefined;
 
@@ -78,6 +110,9 @@ export function DoctorShare({ token }: { token: string }) {
       records={records}
       questionnaireData={questionnaireData}
       patient={patientInfo}
+      aiAnalysis={data?.aiAnalysis}
+      medicationHistory={medicationHistory}
+      currentMedications={currentMedications}
     />
   );
 }

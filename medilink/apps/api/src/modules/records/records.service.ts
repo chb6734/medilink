@@ -668,7 +668,7 @@ export class RecordsService {
     });
     const recordIds = patientRecords.map((r) => r.id);
 
-    const [records, intakeForms, medicationChecks, dailyConditions] =
+    const [records, intakeForms, medicationChecks, dailyConditions, patient] =
       await Promise.all([
         this.prisma.prescriptionRecord.findMany({
           where: { patientId },
@@ -701,6 +701,14 @@ export class RecordsService {
           where: { patientId },
           orderBy: { recordDate: 'desc' },
           take: 30,
+        }),
+        this.prisma.patient.findUnique({
+          where: { id: patientId },
+          select: {
+            birthDate: true,
+            bloodType: true,
+            allergies: true,
+          },
         }),
       ]);
 
@@ -811,11 +819,80 @@ export class RecordsService {
       .sort((a, b) => b.date.getTime() - a.date.getTime())
       .slice(0, 14); // Last 14 days
 
+    // course enum을 한글 문자열로 변환
+    const courseToKorean = (course: string) => {
+      switch (course) {
+        case 'improving':
+          return '점점 호전';
+        case 'worsening':
+          return '점점 악화';
+        case 'no_change':
+          return '변화 없음';
+        default:
+          return '알 수 없음';
+      }
+    };
+
+    // adherence enum을 한글 문자열로 변환
+    const adherenceToKorean = (adherence: string) => {
+      switch (adherence) {
+        case 'yes':
+          return '잘 복용했어요';
+        case 'partial':
+          return '대부분 잘 복용했어요';
+        case 'no':
+          return '잘 복용하지 못했어요';
+        default:
+          return '해당 없음';
+      }
+    };
+
+    // 나이 계산
+    const calculateAge = (birthDate: Date | null): number | null => {
+      if (!birthDate) return null;
+      const todayDate = new Date();
+      const age = todayDate.getFullYear() - birthDate.getFullYear();
+      const monthDiff = todayDate.getMonth() - birthDate.getMonth();
+      if (
+        monthDiff < 0 ||
+        (monthDiff === 0 && todayDate.getDate() < birthDate.getDate())
+      ) {
+        return age - 1;
+      }
+      return age;
+    };
+
+    // 모든 문진 기록의 부작용, 알러지 정보 수집
+    const allSideEffects = intakeForms
+      .map((f) => f.adverseEvents)
+      .filter(Boolean)
+      .join(', ');
+    const allAllergies = [
+      patient?.allergies,
+      ...intakeForms.map((f) => f.allergies),
+    ]
+      .filter(Boolean)
+      .join(', ');
+
+    // 이전 처방 정보 수집
+    const previousPrescriptions = records.slice(0, 10).map((r) => ({
+      date: r.createdAt.toISOString().slice(0, 10),
+      facility: r.facility?.name ?? '미지정',
+      diagnosis: r.doctorDiagnosis ?? '진단 없음',
+      chiefComplaint: r.chiefComplaint ?? '',
+      medications: r.medItems.map((m) => m.nameRaw).join(', '),
+    }));
+
+    const patientNotes = [
+      allSideEffects ? `부작용: ${allSideEffects}` : '',
+      allAllergies ? `알러지: ${allAllergies}` : '',
+    ]
+      .filter(Boolean)
+      .join('\n');
+
     // Get AI analysis
     let aiAnalysis: string | null = null;
     try {
-      const latestIntake = intakeForms[0];
-
       // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call
       const analysisResult: string | null = await analyzePatientStatus({
         chiefComplaints: intakeForms.map((f) => ({
@@ -833,10 +910,24 @@ export class RecordsService {
           symptomLevel: h.symptomLevel,
           notes: h.notes || undefined,
         })),
-        patientNotes:
-          latestIntake?.adherenceReason ||
-          latestIntake?.courseNote ||
-          undefined,
+        patientNotes,
+        intakeForms: intakeForms.map((f) => ({
+          date: f.createdAt.toISOString().slice(0, 10),
+          chiefComplaint: f.chiefComplaint,
+          symptomStart: f.onsetText ?? '',
+          symptomProgress: courseToKorean(f.course),
+          sideEffects: f.adverseEvents ?? '',
+          allergies: f.allergies ?? '',
+          medicationCompliance: adherenceToKorean(f.adherence),
+        })),
+        previousPrescriptions,
+        patientInfo: patient
+          ? {
+              age: calculateAge(patient.birthDate),
+              bloodType: patient.bloodType,
+              allergies: patient.allergies,
+            }
+          : undefined,
       });
       aiAnalysis = analysisResult;
     } catch (error) {

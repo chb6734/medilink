@@ -68,6 +68,27 @@ export async function analyzePatientStatus(params: {
     notes?: string;
   }>;
   patientNotes?: string;
+  intakeForms?: Array<{
+    date: string;
+    chiefComplaint: string;
+    symptomStart: string;
+    symptomProgress: string;
+    sideEffects: string;
+    allergies: string;
+    medicationCompliance: string;
+  }>;
+  previousPrescriptions?: Array<{
+    date: string;
+    facility: string;
+    diagnosis: string;
+    chiefComplaint: string;
+    medications: string;
+  }>;
+  patientInfo?: {
+    age: number | null;
+    bloodType: string | null;
+    allergies: string | null;
+  };
 }) {
   if (process.env.GEMINI_ENABLED !== 'true') return null;
 
@@ -77,7 +98,7 @@ export async function analyzePatientStatus(params: {
     model: modelName,
     generationConfig: {
       temperature: 0.3,
-      maxOutputTokens: 512,
+      maxOutputTokens: 2048,
     },
   });
 
@@ -115,7 +136,7 @@ export async function analyzePatientStatus(params: {
   const historyText =
     params.medicationHistory.length > 0
       ? params.medicationHistory
-          .slice(-7)
+          .slice(-14)
           .map(
             (h) =>
               `- ${h.date}: ${h.taken ? '복용완료' : '복용누락'}, 증상수준 ${h.symptomLevel}/5${h.notes ? `, 메모: ${h.notes}` : ''}`,
@@ -123,40 +144,139 @@ export async function analyzePatientStatus(params: {
           .join('\n')
       : '없음';
 
+  // 문진 기록 텍스트
+  const intakeFormsText =
+    params.intakeForms && params.intakeForms.length > 0
+      ? params.intakeForms
+          .map(
+            (f) =>
+              `[${f.date}]\n` +
+              `  주요 증상: ${f.chiefComplaint}\n` +
+              `  증상 시작: ${f.symptomStart || '미입력'}\n` +
+              `  증상 경과: ${f.symptomProgress}\n` +
+              `  복약 순응: ${f.medicationCompliance}\n` +
+              (f.sideEffects && f.sideEffects !== '없음'
+                ? `  부작용: ${f.sideEffects}\n`
+                : '') +
+              (f.allergies && f.allergies !== '없음'
+                ? `  알러지: ${f.allergies}`
+                : ''),
+          )
+          .join('\n\n')
+      : '없음';
+
+  // 이전 처방 기록 텍스트
+  const prescriptionsText =
+    params.previousPrescriptions && params.previousPrescriptions.length > 0
+      ? params.previousPrescriptions
+          .map(
+            (p) =>
+              `[${p.date}] ${p.facility}\n` +
+              `  주호소: ${p.chiefComplaint || '미기재'}\n` +
+              `  진단: ${p.diagnosis}\n` +
+              `  처방약: ${p.medications || '없음'}`,
+          )
+          .join('\n\n')
+      : '없음';
+
+  // 환자 기본 정보 텍스트
+  const patientInfoText = params.patientInfo
+    ? [
+        params.patientInfo.age ? `나이: ${params.patientInfo.age}세` : null,
+        params.patientInfo.bloodType
+          ? `혈액형: ${params.patientInfo.bloodType}`
+          : null,
+        params.patientInfo.allergies
+          ? `알러지: ${params.patientInfo.allergies}`
+          : null,
+      ]
+        .filter(Boolean)
+        .join(', ')
+    : '정보 없음';
+
   const prompt = [
     '당신은 의료진을 위한 환자 상태 분석 AI입니다.',
-    '제공된 정보를 바탕으로 환자의 현재 상태를 간략히 요약하고 주의사항을 알려주세요.',
+    '제공된 모든 정보를 종합적으로 분석하여 의료진이 진료에 참고할 수 있는 상세한 환자 상태 보고서를 작성해주세요.',
     '',
     '규칙:',
     '- 진단이나 질병 추측을 하지 마세요.',
     '- 의학적 조언을 제공하지 마세요.',
     '- 제공된 정보만을 바탕으로 분석하세요.',
     '- 한국어로 답변하세요.',
-    '- 간결하고 명확하게 작성하세요.',
+    '- 구체적이고 상세하게 작성하세요.',
+    '- 시간 순서대로 증상 변화를 추적해주세요.',
     '',
-    '=== 환자 정보 ===',
+    '═══════════════════════════════════════',
+    '                    환자 정보',
+    '═══════════════════════════════════════',
     '',
-    '주요 증상:',
+    `▶ 기본 정보: ${patientInfoText}`,
+    '',
+    '▶ 주요 증상 이력:',
     complaintsText,
     '',
-    '현재 복용중인 약:',
+    '▶ 현재 복용중인 약:',
     medsText,
     '',
-    '복약 기록 (최근 7일):',
-    `- 복약 순응도: ${adherenceRate}%`,
-    `- 평균 증상 수준: ${avgSymptomLevel}/5`,
+    '═══════════════════════════════════════',
+    '               복약 기록 (최근 2주)',
+    '═══════════════════════════════════════',
+    '',
+    `▶ 복약 순응도: ${adherenceRate}%`,
+    `▶ 평균 증상 수준: ${avgSymptomLevel}/5 (1: 매우 좋음 ~ 5: 매우 나쁨)`,
+    '',
+    '▶ 일별 복약 기록:',
     historyText,
     '',
-    params.patientNotes ? `환자 메모:\n${params.patientNotes}` : '',
+    '═══════════════════════════════════════',
+    '               문진 기록 (시간순)',
+    '═══════════════════════════════════════',
     '',
-    '=== 분석 요청 ===',
-    '다음 형식으로 답변해주세요:',
+    intakeFormsText,
     '',
-    '【현재 상태 요약】',
-    '환자의 현재 상태를 2-3문장으로 간략히 요약해주세요.',
+    '═══════════════════════════════════════',
+    '           이전 처방 기록 (최근 10건)',
+    '═══════════════════════════════════════',
     '',
-    '【주의사항】',
-    '의료진이 주의해야 할 사항을 2-3개 항목으로 나열해주세요.',
+    prescriptionsText,
+    '',
+    params.patientNotes ? `▶ 추가 메모:\n${params.patientNotes}` : '',
+    '',
+    '═══════════════════════════════════════',
+    '                 분석 요청',
+    '═══════════════════════════════════════',
+    '',
+    '아래 형식으로 상세한 분석 보고서를 작성해주세요:',
+    '',
+    '【환자 상태 종합 분석】',
+    '- 현재 주요 증상과 그 경과를 2-3문장으로 설명',
+    '- 복약 순응도와 증상 변화의 상관관계 분석',
+    '- 전반적인 건강 상태 추이 요약',
+    '',
+    '【복약 패턴 분석】',
+    '- 복약 순응도 평가 (좋음/보통/주의 필요)',
+    '- 복약 누락 패턴이 있다면 설명',
+    '- 복약과 증상 변화의 연관성',
+    '',
+    '【증상 경과 분석】',
+    '- 시간에 따른 증상 변화 추이',
+    '- 호전/악화 여부 및 그 정도',
+    '- 특이사항이나 주목할 변화',
+    '',
+    '【부작용 및 알러지 확인】',
+    '- 보고된 부작용 정리',
+    '- 알러지 정보 및 주의사항',
+    '- 약물 간 상호작용 우려 사항',
+    '',
+    '【의료진 주의사항】',
+    '- 진료 시 반드시 확인해야 할 사항 3-5개',
+    '- 추가 문진이 필요한 영역',
+    '- 특별히 주의해야 할 위험 요소',
+    '',
+    '【처방 이력 요약】',
+    '- 주요 처방 패턴 및 변화',
+    '- 반복되는 증상이나 진단',
+    '- 치료 반응 추이',
     '',
     '분석을 시작해주세요:',
   ].join('\n');

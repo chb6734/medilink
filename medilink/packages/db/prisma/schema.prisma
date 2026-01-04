@@ -54,6 +54,7 @@ model Patient {
   authSubject  String?
 
   // 환자 기본 정보
+  name              String?   // 환자 이름
   birthDate         DateTime? // 생년월일 (주민번호 대신)
   bloodType         String?   // 혈액형 (A+, B-, O+, AB- 등)
   heightCm          Float?    // 키 (cm)

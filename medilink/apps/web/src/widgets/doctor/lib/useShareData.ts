@@ -8,6 +8,8 @@ import { getErrorMessage } from "@/shared/lib/error";
 interface ShareMedication {
   nameRaw: string;
   needsVerification: boolean;
+  dose?: string;
+  frequency?: string;
 }
 
 interface ShareRecord {
@@ -16,9 +18,11 @@ interface ShareRecord {
   chiefComplaint?: string;
   doctorDiagnosis?: string;
   meds?: ShareMedication[];
+  facilityName?: string;
 }
 
 export interface SharePatient {
+  name: string | null;
   age: number | null;
   bloodType: string | null;
   height: number | null;
@@ -27,10 +31,35 @@ export interface SharePatient {
   emergencyContact: string | null;
 }
 
+export interface ShareMedicationHistory {
+  date: string;
+  taken: boolean;
+  takenCount: number;
+  totalCount: number;
+  symptomLevel: number;
+  notes: string | null;
+}
+
+export interface ShareCurrentMedication {
+  id: string;
+  name: string;
+  dosage: string;
+  frequency: string;
+  startDate: string;
+  endDate: string | null;
+  prescribedBy: string;
+  confidence?: number;
+  recordId: string;
+  recordDate: string;
+}
+
 export interface ShareData {
   records: ShareRecord[];
   questionnaire?: QuestionnaireData | null;
   patient?: SharePatient | null;
+  medicationHistory?: ShareMedicationHistory[];
+  currentMedications?: ShareCurrentMedication[];
+  aiAnalysis?: string | null;
 }
 
 interface UseShareDataState {
