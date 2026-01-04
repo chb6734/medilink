@@ -5,16 +5,38 @@ import { useRouter } from 'next/navigation';
 import { getRecords, deleteRecord } from '@/shared/api';
 import type { PrescriptionRecord } from '@/entities/record/model/types';
 import { getOrCreatePatientId } from '@/entities/patient/lib/patientId';
+import {
+  type OperationResult,
+  success,
+  failure,
+  isApiError,
+  getErrorMessage,
+} from '@/shared/lib/error';
 
+/**
+ * Return type for the useMedicationRecords hook
+ *
+ * Design Principle: Predictability
+ * - handleDeleteRecord returns OperationResult discriminated union
+ * - This provides consistent error handling with semantic meaning
+ */
 interface UseMedicationRecordsReturn {
   records: PrescriptionRecord[];
   activeRecords: PrescriptionRecord[];
   completedRecords: PrescriptionRecord[];
   loading: boolean;
   loadRecords: () => Promise<void>;
-  handleDeleteRecord: (recordId: string) => Promise<boolean>;
+  handleDeleteRecord: (recordId: string) => Promise<OperationResult<void>>;
 }
 
+/**
+ * Custom hook for managing medication records
+ *
+ * Design Principles Applied:
+ * - Predictability: Uses OperationResult discriminated union for handleDeleteRecord
+ * - Readability: Clear separation between active and completed records
+ * - Coupling: Uses isApiError helper from shared lib for type-safe error checking
+ */
 export function useMedicationRecords(): UseMedicationRecordsReturn {
   const router = useRouter();
   const [records, setRecords] = useState<PrescriptionRecord[]>([]);
@@ -26,9 +48,13 @@ export function useMedicationRecords(): UseMedicationRecordsReturn {
       const data = await getRecords({ patientId });
       setRecords(data.records);
     } catch (e: unknown) {
-      console.error('복약 기록 로드 실패:', e);
-      const error = e as { message?: string; status?: number };
-      if (error.message === 'unauthorized' || error.status === 401) {
+      console.error('Failed to load medication records:', e);
+
+      // Type-safe error handling using isApiError helper
+      const isUnauthorized =
+        isApiError(e) && (e.message === 'unauthorized' || e.status === 401);
+
+      if (isUnauthorized) {
         const returnTo = window.location.pathname;
         router.push(`/login?returnTo=${encodeURIComponent(returnTo)}`);
       }
@@ -41,18 +67,35 @@ export function useMedicationRecords(): UseMedicationRecordsReturn {
     loadRecords();
   }, [loadRecords]);
 
-  const handleDeleteRecord = useCallback(async (recordId: string): Promise<boolean> => {
-    try {
-      await deleteRecord(recordId);
-      setRecords((prev) => prev.filter((r) => r.id !== recordId));
-      return true;
-    } catch (error) {
-      console.error('처방 삭제 실패:', error);
-      return false;
-    }
-  }, []);
+  /**
+   * Delete a medication record
+   *
+   * Uses OperationResult discriminated union for predictable error handling.
+   * Callers can use pattern matching on the `ok` property:
+   *
+   * @example
+   * const result = await handleDeleteRecord(id);
+   * if (result.ok) {
+   *   // Success case
+   * } else {
+   *   showError(result.reason);
+   * }
+   */
+  const handleDeleteRecord = useCallback(
+    async (recordId: string): Promise<OperationResult<void>> => {
+      try {
+        await deleteRecord(recordId);
+        setRecords((prev) => prev.filter((r) => r.id !== recordId));
+        return success(undefined);
+      } catch (error) {
+        console.error('Failed to delete prescription:', error);
+        return failure(getErrorMessage(error));
+      }
+    },
+    []
+  );
 
-  // 진행 중인 처방과 완료된 처방 분리
+  // Separate active and completed prescriptions
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 

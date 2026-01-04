@@ -34,11 +34,11 @@ export function MedicationHistory({ onBack }: MedicationHistoryProps) {
   };
 
   const handleDelete = async (recordId: string) => {
-    const success = await handleDeleteRecord(recordId);
-    if (success) {
+    const result = await handleDeleteRecord(recordId);
+    if (result.ok) {
       setExpandedRecord(null);
     } else {
-      alert('처방 삭제에 실패했습니다. 다시 시도해주세요.');
+      alert(`처방 삭제에 실패했습니다: ${result.reason}`);
     }
   };
 
