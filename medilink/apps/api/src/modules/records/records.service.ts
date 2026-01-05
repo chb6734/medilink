@@ -1196,24 +1196,111 @@ export class RecordsService {
       frequency?: string;
       durationDays?: number;
     },
-  ): Promise<{ id: string; updated: boolean }> {
+  ): Promise<{ id: string; updated: boolean; checksRegenerated?: number }> {
     this.logger.log(`Updating medication item ${medItemId}`);
 
     if (useInMemoryStore) {
       return { id: medItemId, updated: true };
     }
 
-    await this.prisma.medItem.update({
-      where: { id: medItemId },
-      data: {
-        nameRaw: data.nameRaw,
-        dose: data.dose,
-        frequency: data.frequency,
-        durationDays: data.durationDays,
-      },
-    });
+    // 트랜잭션으로 처리
+    return this.prisma.$transaction(async (tx) => {
+      // 1. 기존 약물 정보 조회 (연결된 처방 기록 ID 포함)
+      const existingMedItem = await tx.medItem.findUnique({
+        where: { id: medItemId },
+        include: {
+          prescriptionRecord: {
+            select: {
+              id: true,
+              dispensedAt: true,
+              daysSupply: true,
+            },
+          },
+        },
+      });
 
-    return { id: medItemId, updated: true };
+      if (!existingMedItem) {
+        throw new BadRequestException('Medication item not found');
+      }
+
+      // 2. 약물 정보 업데이트
+      await tx.medItem.update({
+        where: { id: medItemId },
+        data: {
+          nameRaw: data.nameRaw,
+          dose: data.dose,
+          frequency: data.frequency,
+          durationDays: data.durationDays,
+        },
+      });
+
+      // 3. frequency가 변경되었고, 처방 기록에 조제일과 복용일수가 있으면 복약 체크 재생성
+      let checksRegenerated = 0;
+      const record = existingMedItem.prescriptionRecord;
+
+      if (data.frequency && record.dispensedAt && record.daysSupply && record.daysSupply > 0) {
+        const recordId = record.id;
+
+        // 해당 처방의 모든 약물 빈도 조회 (업데이트된 값 포함)
+        const allMedItems = await tx.medItem.findMany({
+          where: { prescriptionRecordId: recordId },
+          select: { frequency: true },
+        });
+
+        // 모든 약물의 빈도를 파싱하여 최대 빈도 찾기
+        const frequencies = allMedItems
+          .map((m) => parseFrequency(m.frequency || null))
+          .filter((f): f is number => f !== null);
+
+        const maxFrequency = frequencies.length > 0 ? Math.max(...frequencies) : 1;
+        const times = getDefaultTimesForFrequency(maxFrequency);
+
+        this.logger.log(
+          `Regenerating medication checks: ${record.daysSupply} days × ${maxFrequency} times = ${record.daysSupply * maxFrequency} checks`,
+        );
+
+        // 기존 복약 체크 삭제
+        await tx.medicationCheck.deleteMany({
+          where: { prescriptionRecordId: recordId },
+        });
+
+        // 새 복약 체크 생성
+        const medicationChecks: Array<{
+          prescriptionRecordId: string;
+          scheduledAt: Date;
+          dayNumber: number;
+          doseNumber: number;
+        }> = [];
+
+        const dispensedDate = new Date(record.dispensedAt);
+
+        for (let day = 0; day < record.daysSupply; day++) {
+          for (let dose = 0; dose < maxFrequency; dose++) {
+            const scheduledDate = new Date(dispensedDate);
+            scheduledDate.setDate(scheduledDate.getDate() + day);
+
+            const [hours, minutes] = times[dose].split(':').map(Number);
+            scheduledDate.setHours(hours, minutes, 0, 0);
+
+            medicationChecks.push({
+              prescriptionRecordId: recordId,
+              scheduledAt: scheduledDate,
+              dayNumber: day + 1,
+              doseNumber: dose + 1,
+            });
+          }
+        }
+
+        await tx.medicationCheck.createMany({
+          data: medicationChecks,
+        });
+
+        checksRegenerated = medicationChecks.length;
+        this.logger.log(`Regenerated ${checksRegenerated} medication check records`);
+      }
+
+      return { id: medItemId, updated: true, checksRegenerated };
+    });
   }
 
   /**
