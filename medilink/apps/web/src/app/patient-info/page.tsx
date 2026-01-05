@@ -75,9 +75,13 @@ export default function PatientInfoPage() {
   }, [router]);
 
   const handleSave = async () => {
-    // 이름 필수 검사
+    // 필수 항목 검사 (이름, 생년월일)
     if (!name.trim()) {
       alert("이름을 입력해주세요.");
+      return;
+    }
+    if (!birthDate) {
+      alert("생년월일을 입력해주세요.");
       return;
     }
 
@@ -214,7 +218,7 @@ export default function PatientInfoPage() {
             }}
           >
             <Calendar className="w-5 h-5" />
-            생년월일
+            생년월일 <span style={{ color: "#EF4444" }}>*</span>
           </label>
           <input
             type="date"
@@ -224,19 +228,23 @@ export default function PatientInfoPage() {
               width: "100%",
               padding: "14px",
               borderRadius: "14px",
-              border: "2px solid #D1D5DB",
+              border: `2px solid ${!birthDate ? "#EF4444" : "#D1D5DB"}`,
               fontSize: "1.0625rem",
               background: "white",
               outline: "none",
             }}
             onFocus={(e) => (e.currentTarget.style.borderColor = "var(--color-accent)")}
-            onBlur={(e) => (e.currentTarget.style.borderColor = "#D1D5DB")}
+            onBlur={(e) => (e.currentTarget.style.borderColor = !birthDate ? "#EF4444" : "#D1D5DB")}
           />
-          {patientInfo?.age !== null && patientInfo?.age !== undefined && (
+          {!birthDate ? (
+            <p style={{ marginTop: "8px", fontSize: "0.875rem", color: "#EF4444" }}>
+              생년월일은 필수 입력 항목입니다
+            </p>
+          ) : patientInfo?.age !== null && patientInfo?.age !== undefined ? (
             <p style={{ marginTop: "8px", fontSize: "0.875rem", color: "var(--color-text-secondary)" }}>
               만 {patientInfo.age}세
             </p>
-          )}
+          ) : null}
         </div>
 
         {/* 혈액형 */}

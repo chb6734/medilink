@@ -24,11 +24,11 @@ export default function HomePage() {
         setRecordCount(resp.count ?? 0);
         setUser(me.user ?? null);
 
-        // 로그인 상태에서 이름이 없으면 patient-info 페이지로 리다이렉트
+        // 로그인 상태에서 필수 정보(이름, 생년월일)가 없으면 patient-info 페이지로 리다이렉트
         if (me.user) {
           try {
             const patientInfo = await getPatientInfo();
-            if (!cancelled && !patientInfo.name) {
+            if (!cancelled && (!patientInfo.name || !patientInfo.birthDate)) {
               router.replace("/patient-info");
               return;
             }
