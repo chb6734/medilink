@@ -278,45 +278,38 @@ function HospitalSelectContent() {
           </div>
         )}
 
+        {/* 저장 중 안내 메시지 */}
+        {loading && (
+          <div
+            style={{
+              marginBottom: "16px",
+              padding: "16px",
+              borderRadius: "16px",
+              background: "linear-gradient(135deg, #EFF6FF 0%, #DBEAFE 100%)",
+              border: "2px solid #3B82F6",
+              display: "flex",
+              alignItems: "center",
+              gap: "12px",
+            }}
+          >
+            <div
+              className="animate-spin rounded-full h-6 w-6 border-b-2"
+              style={{ borderColor: "#3B82F6" }}
+            />
+            <p style={{ fontWeight: "600", color: "#1E40AF" }}>
+              문진표를 저장하고 있습니다...
+            </p>
+          </div>
+        )}
+
         <HospitalSearchWithAI
           chiefComplaint={chiefComplaint}
           symptomDetail={symptomDetail}
           onSelect={handleSelectHospital}
           initialKeyword={defaultHospitalName}
+          disabled={loading}
         />
       </div>
-
-      {/* Loading Overlay */}
-      {loading && (
-        <div
-          style={{
-            position: "fixed",
-            inset: 0,
-            background: "rgba(0,0,0,0.5)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            zIndex: 50,
-          }}
-        >
-          <div
-            style={{
-              background: "white",
-              borderRadius: "16px",
-              padding: "32px",
-              textAlign: "center",
-            }}
-          >
-            <div
-              className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"
-              style={{ borderColor: "#285BAA" }}
-            ></div>
-            <p style={{ fontWeight: "600", color: "var(--color-text-primary)" }}>
-              문진표를 저장하고 있습니다...
-            </p>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

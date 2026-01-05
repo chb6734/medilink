@@ -10,6 +10,7 @@ interface HospitalSearchWithAIProps {
   symptomDetail?: string; // 증상 상세 (선택)
   onSelect: (hospital: Facility) => void;
   initialKeyword?: string;
+  disabled?: boolean; // 저장 중일 때 버튼 비활성화
 }
 
 export function HospitalSearchWithAI({
@@ -17,6 +18,7 @@ export function HospitalSearchWithAI({
   symptomDetail,
   onSelect,
   initialKeyword = "",
+  disabled = false,
 }: HospitalSearchWithAIProps) {
   const [keyword, setKeyword] = useState(initialKeyword);
   const [facilities, setFacilities] = useState<Facility[]>([]);
@@ -226,26 +228,32 @@ export function HospitalSearchWithAI({
             <button
               key={facility.id}
               onClick={() => onSelect(facility)}
+              disabled={disabled}
               style={{
                 width: "100%",
                 textAlign: "left",
                 padding: "16px 16px",
                 borderRadius: 16,
                 border: "1px solid #E5E7EB",
-                background: "white",
+                background: disabled ? "#F3F4F6" : "white",
                 display: "flex",
                 alignItems: "center",
                 gap: 14,
-                cursor: "pointer",
+                cursor: disabled ? "not-allowed" : "pointer",
                 transition: "all 0.2s",
+                opacity: disabled ? 0.6 : 1,
               }}
               onMouseEnter={(e) => {
-                e.currentTarget.style.borderColor = "var(--color-accent)";
-                e.currentTarget.style.transform = "translateX(4px)";
+                if (!disabled) {
+                  e.currentTarget.style.borderColor = "var(--color-accent)";
+                  e.currentTarget.style.transform = "translateX(4px)";
+                }
               }}
               onMouseLeave={(e) => {
-                e.currentTarget.style.borderColor = "#E5E7EB";
-                e.currentTarget.style.transform = "translateX(0)";
+                if (!disabled) {
+                  e.currentTarget.style.borderColor = "#E5E7EB";
+                  e.currentTarget.style.transform = "translateX(0)";
+                }
               }}
             >
               <div

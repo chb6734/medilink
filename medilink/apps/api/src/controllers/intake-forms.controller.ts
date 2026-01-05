@@ -60,11 +60,22 @@ export class IntakeFormsController {
    */
   @Post()
   async createIntakeForm(@Req() req: Request, @Body() body: CreateIntakeFormDto) {
-    try {
-      // TODO: requireAuth(req) - 인증 체크
-      // const { patientId } = requireAuth(req);
+    // 인증된 사용자의 patientId 사용
+    const patientId = (req as any).patientId as string | undefined;
 
-      return await this.intakeFormsService.createIntakeForm(body);
+    if (!patientId) {
+      throw new HttpException(
+        'Unauthorized: No patient ID found',
+        HttpStatus.UNAUTHORIZED,
+      );
+    }
+
+    try {
+      // 요청 body의 patientId 대신 인증된 patientId 사용
+      return await this.intakeFormsService.createIntakeForm({
+        ...body,
+        patientId,
+      });
     } catch (error) {
       console.error('Failed to create intake form:', error);
       throw new HttpException(
