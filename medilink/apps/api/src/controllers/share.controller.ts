@@ -59,9 +59,14 @@ export class ShareController {
     ensureDbConfigured();
     requireAuth(req);
 
+    // 인증된 사용자의 patientId 사용
+    const patientId = (req as any).patientId as string | undefined;
+    if (!patientId) {
+      throw new UnauthorizedException('unauthorized');
+    }
+
     const parsed = z
       .object({
-        patientId: z.string().uuid(),
         facilityId: z.string().uuid().optional(),
       })
       .safeParse(body);
@@ -78,14 +83,14 @@ export class ShareController {
     const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
 
     if (useInMemoryStore) {
-      memRevokeShares(parsed.data.patientId);
-      memCreateShare(parsed.data.patientId, tokenHash, expiresAt);
+      memRevokeShares(patientId);
+      memCreateShare(patientId, tokenHash, expiresAt);
       return { token, expiresAt };
     }
 
     await prisma.shareToken.updateMany({
       where: {
-        patientId: parsed.data.patientId,
+        patientId,
         revokedAt: null,
         expiresAt: { gt: new Date() },
       },
@@ -94,7 +99,7 @@ export class ShareController {
 
     await prisma.shareToken.create({
       data: {
-        patientId: parsed.data.patientId,
+        patientId,
         facilityId: parsed.data.facilityId,
         tokenHash,
         expiresAt,
