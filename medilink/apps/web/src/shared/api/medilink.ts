@@ -324,6 +324,7 @@ export async function updateRecord(params: {
 
 export type PatientInfo = {
   id: string;
+  name: string | null;
   birthDate: string | null;
   age: number | null;
   bloodType: string | null;
@@ -341,6 +342,7 @@ export async function getPatientInfo(): Promise<PatientInfo> {
 }
 
 export async function updatePatientInfo(params: {
+  name?: string;
   birthDate?: string;
   bloodType?: string;
   heightCm?: number;

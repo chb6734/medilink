@@ -15,6 +15,7 @@ import { PrismaService } from '../database/prisma.service';
  * 환자 정보 업데이트 DTO
  */
 const UpdatePatientDto = z.object({
+  name: z.string().min(1).max(50).optional(), // 이름
   birthDate: z.string().optional(), // ISO 8601 날짜 문자열
   bloodType: z.string().optional(), // A+, B-, O+, AB- 등
   heightCm: z.number().positive().optional(), // 키 (cm)
@@ -71,6 +72,7 @@ export class PatientsController {
       where: { id: patientId },
       select: {
         id: true,
+        name: true,
         birthDate: true,
         bloodType: true,
         heightCm: true,
@@ -162,6 +164,7 @@ export class PatientsController {
       data: updateData,
       select: {
         id: true,
+        name: true,
         birthDate: true,
         bloodType: true,
         heightCm: true,

@@ -47,12 +47,14 @@ export class AuthMiddleware implements NestMiddleware {
           data: {
             authProvider: payload.provider,
             authSubject: payload.subject,
+            name: payload.displayName, // OAuth 로그인 시 이름 저장
           },
           select: { id: true },
         });
         console.log('✅ 새 환자 레코드 생성:', {
           patientId: patient.id,
           provider: payload.provider,
+          name: payload.displayName,
         });
       }
 

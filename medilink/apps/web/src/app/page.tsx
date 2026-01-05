@@ -2,7 +2,7 @@
 
 import { Home } from "@/widgets/home/Home";
 import { getOrCreatePatientId } from "@/entities/patient/lib/patientId";
-import { authLogout, authMe, getRecordCount } from "@/shared/api";
+import { authLogout, authMe, getRecordCount, getPatientInfo } from "@/shared/api";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
@@ -23,6 +23,23 @@ export default function HomePage() {
         if (cancelled) return;
         setRecordCount(resp.count ?? 0);
         setUser(me.user ?? null);
+
+        // 로그인 상태에서 이름이 없으면 patient-info 페이지로 리다이렉트
+        if (me.user) {
+          try {
+            const patientInfo = await getPatientInfo();
+            if (!cancelled && !patientInfo.name) {
+              router.replace("/patient-info");
+              return;
+            }
+          } catch (e) {
+            // 환자 정보 조회 실패 시 리다이렉트
+            if (!cancelled) {
+              router.replace("/patient-info");
+              return;
+            }
+          }
+        }
       } catch (e) {
         // auth 미로그인/서버 미설정 등: 홈은 0으로 안전하게 표시
         if (cancelled) return;
@@ -33,7 +50,7 @@ export default function HomePage() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [router]);
 
   return (
     <div className="app-container">

@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { getPatientInfo, updatePatientInfo, authMe } from "@/shared/api";
 import type { PatientInfo } from "@/shared/api/medilink";
-import { ArrowLeft, User, Calendar, Droplet, Ruler, Weight, AlertCircle, Phone } from "lucide-react";
+import { ArrowLeft, User, Calendar, Droplet, Ruler, Weight, AlertCircle, Phone, UserCircle } from "lucide-react";
 import { AllergySelector } from "@/features/allergy";
 
 export default function PatientInfoPage() {
@@ -14,6 +14,7 @@ export default function PatientInfoPage() {
   const [patientInfo, setPatientInfo] = useState<PatientInfo | null>(null);
 
   // Form fields
+  const [name, setName] = useState("");
   const [birthDate, setBirthDate] = useState("");
   const [bloodType, setBloodType] = useState("");
   const [heightCm, setHeightCm] = useState("");
@@ -41,6 +42,7 @@ export default function PatientInfoPage() {
         setPatientInfo(info);
 
         // 폼 필드 초기화
+        setName(info.name || "");
         if (info.birthDate) {
           // ISO 8601 날짜를 YYYY-MM-DD 형식으로 변환
           setBirthDate(info.birthDate.split("T")[0]);
@@ -73,6 +75,12 @@ export default function PatientInfoPage() {
   }, [router]);
 
   const handleSave = async () => {
+    // 이름 필수 검사
+    if (!name.trim()) {
+      alert("이름을 입력해주세요.");
+      return;
+    }
+
     setSaving(true);
     try {
       // 알러지 배열을 문자열로 변환
@@ -80,6 +88,7 @@ export default function PatientInfoPage() {
         selectedAllergies.length > 0 ? selectedAllergies.join(", ") : "없음";
 
       const updatedInfo = await updatePatientInfo({
+        name: name || undefined,
         birthDate: birthDate || undefined,
         bloodType: bloodType || undefined,
         heightCm: heightCm ? parseFloat(heightCm) : undefined,
@@ -151,6 +160,46 @@ export default function PatientInfoPage() {
       </div>
 
       <div style={{ padding: "24px" }}>
+        {/* 이름 */}
+        <div style={{ marginBottom: "24px" }}>
+          <label
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "8px",
+              fontSize: "0.9375rem",
+              fontWeight: "700",
+              color: "var(--color-text-secondary)",
+              marginBottom: "8px",
+            }}
+          >
+            <UserCircle className="w-5 h-5" />
+            이름 <span style={{ color: "#EF4444" }}>*</span>
+          </label>
+          <input
+            type="text"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="홍길동"
+            style={{
+              width: "100%",
+              padding: "14px",
+              borderRadius: "14px",
+              border: `2px solid ${!name ? "#EF4444" : "#D1D5DB"}`,
+              fontSize: "1.0625rem",
+              background: "white",
+              outline: "none",
+            }}
+            onFocus={(e) => (e.currentTarget.style.borderColor = "var(--color-accent)")}
+            onBlur={(e) => (e.currentTarget.style.borderColor = !name ? "#EF4444" : "#D1D5DB")}
+          />
+          {!name && (
+            <p style={{ marginTop: "8px", fontSize: "0.875rem", color: "#EF4444" }}>
+              이름은 필수 입력 항목입니다
+            </p>
+          )}
+        </div>
+
         {/* 생년월일 & 만나이 */}
         <div style={{ marginBottom: "24px" }}>
           <label
