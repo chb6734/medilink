@@ -86,6 +86,38 @@ export class IntakeFormsController {
   }
 
   /**
+   * 현재 로그인한 환자의 최근 문진표 조회
+   *
+   * @route GET /api/intake-forms/me
+   *
+   * @description
+   * 인증된 환자의 최근 문진표를 조회합니다 (최대 5개).
+   */
+  @Get('me')
+  async getMyIntakeForms(@Req() req: Request) {
+    const patientId = (req as any).patientId as string | undefined;
+
+    if (!patientId) {
+      throw new HttpException(
+        'Unauthorized: No patient ID found',
+        HttpStatus.UNAUTHORIZED,
+      );
+    }
+
+    try {
+      const forms = await this.intakeFormsService.getIntakeForms(patientId);
+      // 최근 5개만 반환
+      return forms.slice(0, 5);
+    } catch (error) {
+      console.error('Failed to get my intake forms:', error);
+      throw new HttpException(
+        'Failed to get intake forms',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  /**
    * 환자의 문진표 목록 조회
    *
    * @route GET /api/intake-forms?patientId=xxx

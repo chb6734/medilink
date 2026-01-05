@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   ArrowLeft,
   Camera,
@@ -9,12 +9,16 @@ import {
   X,
   Bell,
   Sparkles,
+  FileText,
+  Calendar,
+  ChevronRight,
 } from "lucide-react";
 import type {
   PrescriptionRecord,
   Medication,
 } from "@/entities/record/model/types";
-import { previewOcr, createRecord } from "@/shared/api";
+import { previewOcr, createRecord, getMyIntakeForms, authMe } from "@/shared/api";
+import type { IntakeForm } from "@/shared/api/medilink";
 import { getOrCreatePatientId } from "@/entities/patient/lib/patientId";
 
 interface QuickRecordProps {
@@ -105,6 +109,59 @@ export function QuickRecord({ onBack, onRecordSaved }: QuickRecordProps) {
     null
   );
   const [reminderEnabled, setReminderEnabled] = useState(false);
+
+  // 최근 문진표 관련 상태
+  const [recentIntakeForms, setRecentIntakeForms] = useState<IntakeForm[]>([]);
+  const [selectedIntakeForm, setSelectedIntakeForm] = useState<IntakeForm | null>(null);
+  const [loadingIntakeForms, setLoadingIntakeForms] = useState(true);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+
+  // 최근 문진표 불러오기
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const me = await authMe();
+        if (cancelled) return;
+        if (me.user) {
+          setIsLoggedIn(true);
+          const forms = await getMyIntakeForms();
+          if (!cancelled) {
+            setRecentIntakeForms(forms);
+          }
+        }
+      } catch (e) {
+        console.error("Failed to load intake forms:", e);
+      } finally {
+        if (!cancelled) {
+          setLoadingIntakeForms(false);
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // 문진표 선택 시 관련 정보 자동 입력
+  const handleSelectIntakeForm = (form: IntakeForm) => {
+    setSelectedIntakeForm(form);
+    // 증상 자동 입력
+    if (form.chiefComplaint) {
+      setSymptom(form.chiefComplaint);
+    }
+    // 병원명 자동 입력
+    if (form.facility?.name) {
+      setHospitalName(form.facility.name);
+    }
+  };
+
+  // 문진표 선택 해제
+  const handleClearIntakeForm = () => {
+    setSelectedIntakeForm(null);
+    setSymptom("");
+    setHospitalName("");
+  };
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -1726,12 +1783,157 @@ export function QuickRecord({ onBack, onRecordSaved }: QuickRecordProps) {
       </div>
 
       <div style={{ padding: "24px" }}>
+        {/* 최근 문진표 선택 영역 */}
+        {isLoggedIn && !loadingIntakeForms && recentIntakeForms.length > 0 && (
+          <div style={{ marginBottom: "24px" }}>
+            <h3 style={{
+              fontSize: "1rem",
+              fontWeight: "700",
+              color: "var(--color-text-primary)",
+              marginBottom: "12px",
+              display: "flex",
+              alignItems: "center",
+              gap: "8px"
+            }}>
+              <FileText className="w-5 h-5" style={{ color: "#7C3AED" }} />
+              최근 병원 방문 기록 연결
+            </h3>
+            <p style={{
+              fontSize: "0.875rem",
+              color: "var(--color-text-secondary)",
+              marginBottom: "16px"
+            }}>
+              문진표와 연결하면 증상 정보가 자동으로 입력됩니다
+            </p>
+
+            {/* 선택된 문진표 표시 */}
+            {selectedIntakeForm ? (
+              <div
+                style={{
+                  padding: "16px",
+                  borderRadius: "16px",
+                  background: "linear-gradient(135deg, #F0F9FF 0%, #E0F2FE 100%)",
+                  border: "2px solid #0EA5E9",
+                  marginBottom: "12px",
+                }}
+              >
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                  <div>
+                    <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "6px" }}>
+                      <CheckCircle className="w-5 h-5" style={{ color: "#0EA5E9" }} />
+                      <span style={{ fontSize: "0.75rem", fontWeight: "600", color: "#0369A1" }}>
+                        선택됨
+                      </span>
+                    </div>
+                    <p style={{ fontSize: "1rem", fontWeight: "700", color: "#0C4A6E", marginBottom: "4px" }}>
+                      {selectedIntakeForm.chiefComplaint}
+                    </p>
+                    <p style={{ fontSize: "0.875rem", color: "#0369A1" }}>
+                      {selectedIntakeForm.facility?.name || "병원 미지정"} · {new Date(selectedIntakeForm.createdAt).toLocaleDateString("ko-KR")}
+                    </p>
+                  </div>
+                  <button
+                    onClick={handleClearIntakeForm}
+                    style={{
+                      background: "rgba(255,255,255,0.8)",
+                      border: "none",
+                      padding: "8px",
+                      borderRadius: "8px",
+                      cursor: "pointer",
+                    }}
+                  >
+                    <X className="w-4 h-4" style={{ color: "#64748B" }} />
+                  </button>
+                </div>
+              </div>
+            ) : (
+              /* 문진표 목록 */
+              <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                {recentIntakeForms.slice(0, 3).map((form) => (
+                  <button
+                    key={form.id}
+                    onClick={() => handleSelectIntakeForm(form)}
+                    style={{
+                      width: "100%",
+                      padding: "14px 16px",
+                      borderRadius: "14px",
+                      border: "1px solid #E5E7EB",
+                      background: "white",
+                      cursor: "pointer",
+                      textAlign: "left",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "12px",
+                      transition: "all 0.2s",
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.borderColor = "#7C3AED";
+                      e.currentTarget.style.background = "#FAF5FF";
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.borderColor = "#E5E7EB";
+                      e.currentTarget.style.background = "white";
+                    }}
+                  >
+                    <div
+                      style={{
+                        width: "40px",
+                        height: "40px",
+                        borderRadius: "10px",
+                        background: "#F3E8FF",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        flexShrink: 0,
+                      }}
+                    >
+                      <Calendar className="w-5 h-5" style={{ color: "#7C3AED" }} />
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <p style={{
+                        fontSize: "0.9375rem",
+                        fontWeight: "700",
+                        color: "var(--color-text-primary)",
+                        marginBottom: "2px",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        whiteSpace: "nowrap",
+                      }}>
+                        {form.chiefComplaint}
+                      </p>
+                      <p style={{ fontSize: "0.8125rem", color: "var(--color-text-secondary)" }}>
+                        {form.facility?.name || "병원 미지정"} · {new Date(form.createdAt).toLocaleDateString("ko-KR")}
+                      </p>
+                    </div>
+                    <ChevronRight className="w-5 h-5" style={{ color: "#9CA3AF", flexShrink: 0 }} />
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {/* 구분선 */}
+            <div style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "16px",
+              marginTop: "20px",
+              marginBottom: "4px"
+            }}>
+              <div style={{ flex: 1, height: "1px", background: "#E5E7EB" }} />
+              <span style={{ fontSize: "0.8125rem", color: "var(--color-text-tertiary)", fontWeight: "500" }}>
+                또는
+              </span>
+              <div style={{ flex: 1, height: "1px", background: "#E5E7EB" }} />
+            </div>
+          </div>
+        )}
+
         {/* Upload Area */}
         <div
           style={{
             border: "3px dashed #E9D5FF",
             borderRadius: "24px",
-            padding: "64px 24px",
+            padding: selectedIntakeForm ? "40px 24px" : "64px 24px",
             textAlign: "center",
             background: "var(--color-surface)",
           }}

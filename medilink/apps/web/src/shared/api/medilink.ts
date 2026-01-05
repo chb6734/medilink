@@ -506,6 +506,12 @@ export async function getIntakeForms(patientId: string): Promise<IntakeForm[]> {
   });
 }
 
+export async function getMyIntakeForms(): Promise<IntakeForm[]> {
+  return await fetchJson<IntakeForm[]>("/api/intake-forms/me", {
+    method: "GET",
+  });
+}
+
 export async function findOrCreateFacility(params: {
   name: string;
   type?: "clinic" | "hospital" | "pharmacy" | "unknown";
