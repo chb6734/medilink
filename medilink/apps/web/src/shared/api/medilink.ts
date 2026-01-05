@@ -576,3 +576,23 @@ export async function getRecord(recordId: string): Promise<{
     method: "GET",
   });
 }
+
+// ============= 개별 약물 수정 API =============
+
+export async function updateMedItem(params: {
+  medItemId: string;
+  nameRaw?: string;
+  dose?: string;
+  frequency?: string;
+  durationDays?: number;
+}): Promise<{ id: string; updated: boolean }> {
+  const { medItemId, ...data } = params;
+  return await fetchJson<{ id: string; updated: boolean }>(
+    `/api/med-items/${medItemId}`,
+    {
+      method: "PUT",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(data),
+    }
+  );
+}

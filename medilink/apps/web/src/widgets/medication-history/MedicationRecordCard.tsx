@@ -1,14 +1,15 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Pill, Edit2, Trash2 } from 'lucide-react';
+import { Pill, Edit2, Trash2, Check, X, Loader2 } from 'lucide-react';
 import type { PrescriptionRecord } from '@/entities/record/model/types';
 import { colors, typography, spacing, borderRadius, gradients } from '@/shared/lib/design-tokens';
 import { formatDate } from '@/shared/lib/format';
 import { Badge, Button } from '@/shared/components';
 import { AdherenceChart } from '@/features/adherence';
 import { MedicationCheckList } from '@/features/medication-check';
+import { updateMedItem } from '@/shared/api';
 
 interface MedicationRecordCardProps {
   record: PrescriptionRecord;
@@ -29,9 +30,53 @@ export function MedicationRecordCard({
 }: MedicationRecordCardProps) {
   const router = useRouter();
 
+  // 인라인 편집 상태
+  const [editingMedId, setEditingMedId] = useState<string | null>(null);
+  const [editName, setEditName] = useState('');
+  const [editDosage, setEditDosage] = useState('');
+  const [editFrequency, setEditFrequency] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
+
   const handleDelete = async () => {
     if (confirm('정말 이 처방을 삭제하시겠습니까?')) {
       await onDelete();
+    }
+  };
+
+  const startEditing = (med: { id: string; name: string; dosage: string; frequency: string }) => {
+    setEditingMedId(med.id);
+    setEditName(med.name);
+    setEditDosage(med.dosage);
+    setEditFrequency(med.frequency);
+  };
+
+  const cancelEditing = () => {
+    setEditingMedId(null);
+    setEditName('');
+    setEditDosage('');
+    setEditFrequency('');
+  };
+
+  const saveEditing = async () => {
+    if (!editingMedId) return;
+
+    setIsSaving(true);
+    try {
+      await updateMedItem({
+        medItemId: editingMedId,
+        nameRaw: editName || undefined,
+        dose: editDosage || undefined,
+        frequency: editFrequency || undefined,
+      });
+
+      // 성공 시 상태 업데이트 (부모 컴포넌트에 알림)
+      onCheckUpdate(); // 데이터 새로고침 트리거
+      cancelEditing();
+    } catch (error) {
+      console.error('약물 수정 실패:', error);
+      alert('약물 수정에 실패했습니다.');
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -160,30 +205,152 @@ export function MedicationRecordCard({
                     padding: spacing.lg,
                     background: colors.neutral[50],
                     borderRadius: borderRadius.md,
-                    border: `1px solid ${colors.neutral[200]}`,
+                    border: `1px solid ${editingMedId === med.id ? colors.primary.main : colors.neutral[200]}`,
                   }}
                 >
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: spacing.sm }}>
-                    <p style={{ fontSize: typography.fontSize.lg, fontWeight: typography.fontWeight.bold, flex: 1 }}>{med.name}</p>
-                    <button
-                      onClick={() => router.push(`/medication-history/${record.id}/medications/${med.id}/edit`)}
-                      style={{
-                        background: 'transparent',
-                        border: 'none',
-                        color: colors.primary.main,
-                        cursor: 'pointer',
-                        fontSize: typography.fontSize.sm,
-                        fontWeight: typography.fontWeight.semibold,
-                        padding: `${spacing.xs} ${spacing.sm}`,
-                      }}
-                    >
-                      수정
-                    </button>
-                  </div>
-                  <div style={{ display: 'flex', gap: spacing.lg, fontSize: typography.fontSize.base, color: colors.neutral[500] }}>
-                    <span>💊 {med.dosage}</span>
-                    <span>🕐 {med.frequency}</span>
-                  </div>
+                  {editingMedId === med.id ? (
+                    // 편집 모드
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.md }}>
+                      <div>
+                        <label style={{ fontSize: typography.fontSize.sm, color: colors.neutral[500], marginBottom: spacing.xs, display: 'block' }}>
+                          약물명
+                        </label>
+                        <input
+                          type="text"
+                          value={editName}
+                          onChange={(e) => setEditName(e.target.value)}
+                          disabled={isSaving}
+                          style={{
+                            width: '100%',
+                            padding: spacing.sm,
+                            borderRadius: borderRadius.md,
+                            border: `1px solid ${colors.neutral[300]}`,
+                            fontSize: typography.fontSize.base,
+                            outline: 'none',
+                          }}
+                          onFocus={(e) => (e.currentTarget.style.borderColor = colors.primary.main)}
+                          onBlur={(e) => (e.currentTarget.style.borderColor = colors.neutral[300])}
+                        />
+                      </div>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: spacing.sm }}>
+                        <div>
+                          <label style={{ fontSize: typography.fontSize.sm, color: colors.neutral[500], marginBottom: spacing.xs, display: 'block' }}>
+                            용량
+                          </label>
+                          <input
+                            type="text"
+                            value={editDosage}
+                            onChange={(e) => setEditDosage(e.target.value)}
+                            disabled={isSaving}
+                            placeholder="예: 500mg"
+                            style={{
+                              width: '100%',
+                              padding: spacing.sm,
+                              borderRadius: borderRadius.md,
+                              border: `1px solid ${colors.neutral[300]}`,
+                              fontSize: typography.fontSize.base,
+                              outline: 'none',
+                            }}
+                            onFocus={(e) => (e.currentTarget.style.borderColor = colors.primary.main)}
+                            onBlur={(e) => (e.currentTarget.style.borderColor = colors.neutral[300])}
+                          />
+                        </div>
+                        <div>
+                          <label style={{ fontSize: typography.fontSize.sm, color: colors.neutral[500], marginBottom: spacing.xs, display: 'block' }}>
+                            복용법
+                          </label>
+                          <input
+                            type="text"
+                            value={editFrequency}
+                            onChange={(e) => setEditFrequency(e.target.value)}
+                            disabled={isSaving}
+                            placeholder="예: 1일 3회"
+                            style={{
+                              width: '100%',
+                              padding: spacing.sm,
+                              borderRadius: borderRadius.md,
+                              border: `1px solid ${colors.neutral[300]}`,
+                              fontSize: typography.fontSize.base,
+                              outline: 'none',
+                            }}
+                            onFocus={(e) => (e.currentTarget.style.borderColor = colors.primary.main)}
+                            onBlur={(e) => (e.currentTarget.style.borderColor = colors.neutral[300])}
+                          />
+                        </div>
+                      </div>
+                      <div style={{ display: 'flex', gap: spacing.sm, justifyContent: 'flex-end' }}>
+                        <button
+                          onClick={cancelEditing}
+                          disabled={isSaving}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: spacing.xs,
+                            padding: `${spacing.sm} ${spacing.md}`,
+                            borderRadius: borderRadius.md,
+                            border: `1px solid ${colors.neutral[300]}`,
+                            background: colors.white,
+                            color: colors.neutral[600],
+                            fontSize: typography.fontSize.sm,
+                            fontWeight: typography.fontWeight.medium,
+                            cursor: isSaving ? 'not-allowed' : 'pointer',
+                          }}
+                        >
+                          <X className="w-4 h-4" />
+                          취소
+                        </button>
+                        <button
+                          onClick={saveEditing}
+                          disabled={isSaving}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: spacing.xs,
+                            padding: `${spacing.sm} ${spacing.md}`,
+                            borderRadius: borderRadius.md,
+                            border: 'none',
+                            background: isSaving ? colors.neutral[400] : colors.primary.main,
+                            color: colors.white,
+                            fontSize: typography.fontSize.sm,
+                            fontWeight: typography.fontWeight.medium,
+                            cursor: isSaving ? 'not-allowed' : 'pointer',
+                          }}
+                        >
+                          {isSaving ? (
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                          ) : (
+                            <Check className="w-4 h-4" />
+                          )}
+                          {isSaving ? '저장 중...' : '저장'}
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    // 표시 모드
+                    <>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: spacing.sm }}>
+                        <p style={{ fontSize: typography.fontSize.lg, fontWeight: typography.fontWeight.bold, flex: 1 }}>{med.name}</p>
+                        <button
+                          onClick={() => startEditing(med)}
+                          style={{
+                            background: 'transparent',
+                            border: 'none',
+                            color: colors.primary.main,
+                            cursor: 'pointer',
+                            fontSize: typography.fontSize.sm,
+                            fontWeight: typography.fontWeight.semibold,
+                            padding: `${spacing.xs} ${spacing.sm}`,
+                          }}
+                        >
+                          수정
+                        </button>
+                      </div>
+                      <div style={{ display: 'flex', gap: spacing.lg, fontSize: typography.fontSize.base, color: colors.neutral[500] }}>
+                        <span>💊 {med.dosage}</span>
+                        <span>🕐 {med.frequency}</span>
+                      </div>
+                    </>
+                  )}
                 </div>
               ))}
             </div>
