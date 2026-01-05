@@ -239,10 +239,12 @@ export async function getDoctorSummary(params: { patientId: string }) {
         chiefComplaint: string;
         symptomStart: string;
         symptomProgress: string;
+        symptomDetail?: string;
         medicationCompliance: string;
         sideEffects: string;
         allergies: string;
         hospitalName: string;
+        patientNotes?: string;
         createdAt: string;
       } | null;
     }>;

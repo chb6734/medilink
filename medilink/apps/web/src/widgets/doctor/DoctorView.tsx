@@ -59,9 +59,11 @@ export function DoctorView({
         chiefComplaint: linkedForm.chiefComplaint,
         symptomStart: linkedForm.symptomStart,
         symptomProgress: linkedForm.symptomProgress,
+        symptomDetail: linkedForm.symptomDetail,
         medicationCompliance: linkedForm.medicationCompliance,
         sideEffects: linkedForm.sideEffects,
         allergies: linkedForm.allergies,
+        patientNotes: linkedForm.patientNotes,
       }
     : questionnaireData;
 

@@ -55,10 +55,23 @@ export function ChiefComplaintSection({
             color: "#991B1B",
             fontWeight: "600",
             lineHeight: "1.6",
+            marginBottom: questionnaireData.symptomDetail ? "8px" : 0,
           }}
         >
           {questionnaireData.chiefComplaint}
         </p>
+        {questionnaireData.symptomDetail && (
+          <p
+            style={{
+              color: "#7F1D1D",
+              fontSize: "0.875rem",
+              lineHeight: "1.6",
+              marginBottom: 0,
+            }}
+          >
+            {questionnaireData.symptomDetail}
+          </p>
+        )}
       </div>
 
       {/* Symptom Details */}
@@ -143,6 +156,42 @@ export function ChiefComplaintSection({
               }}
             >
               {questionnaireData.sideEffects}
+            </p>
+          </div>
+        )}
+
+        {/* Patient Notes */}
+        {questionnaireData.patientNotes && (
+          <div
+            style={{
+              padding: "12px",
+              background: "#F0F9FF",
+              borderRadius: "8px",
+              marginTop: "12px",
+              borderLeft: "4px solid #0EA5E9",
+            }}
+          >
+            <span
+              style={{
+                fontSize: "0.8125rem",
+                fontWeight: "600",
+                color: "#0369A1",
+                display: "block",
+                marginBottom: "4px",
+              }}
+            >
+              환자 메모
+            </span>
+            <p
+              style={{
+                fontSize: "0.875rem",
+                color: "#0C4A6E",
+                lineHeight: "1.6",
+                marginBottom: 0,
+                whiteSpace: "pre-wrap",
+              }}
+            >
+              {questionnaireData.patientNotes}
             </p>
           </div>
         )}

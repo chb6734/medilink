@@ -982,15 +982,13 @@ export class RecordsService {
               id: r.intakeForm.id,
               chiefComplaint: r.intakeForm.chiefComplaint,
               symptomStart: r.intakeForm.onsetText ?? '미입력',
-              symptomProgress: r.intakeForm.courseNote
-                ? `${courseToKorean(r.intakeForm.course)} - ${r.intakeForm.courseNote}`
-                : courseToKorean(r.intakeForm.course),
-              medicationCompliance: r.intakeForm.adherenceReason
-                ? `${adherenceToKorean(r.intakeForm.adherence)} - ${r.intakeForm.adherenceReason}`
-                : adherenceToKorean(r.intakeForm.adherence),
+              symptomProgress: courseToKorean(r.intakeForm.course),
+              symptomDetail: r.intakeForm.courseNote ?? undefined,
+              medicationCompliance: adherenceToKorean(r.intakeForm.adherence),
               sideEffects: r.intakeForm.adverseEvents ?? '없음',
               allergies: r.intakeForm.allergies ?? '없음',
               hospitalName: r.intakeForm.facility?.name ?? '미지정',
+              patientNotes: r.intakeForm.adherenceReason ?? undefined,
               createdAt: r.intakeForm.createdAt.toISOString(),
             }
           : null,
