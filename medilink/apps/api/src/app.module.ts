@@ -59,6 +59,6 @@ export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {
     consumer
       .apply(AuthMiddleware)
-      .forRoutes('api/patients', 'api/records', 'api/intake-forms');
+      .forRoutes('api/patients', 'api/records', 'api/intake-forms', 'api/share-tokens');
   }
 }
