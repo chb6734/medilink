@@ -9,7 +9,7 @@ export interface QuestionnaireData {
   medicationCompliance: string;
   sideEffects: string;
   allergies: string;
-  patientNotes: string;
+  patientNotes?: string;
 }
 
 

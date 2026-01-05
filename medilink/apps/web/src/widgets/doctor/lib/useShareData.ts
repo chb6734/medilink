@@ -12,6 +12,18 @@ interface ShareMedication {
   frequency?: string;
 }
 
+interface ShareLinkedIntakeForm {
+  id: string;
+  chiefComplaint: string;
+  symptomStart: string;
+  symptomProgress: string;
+  medicationCompliance: string;
+  sideEffects: string;
+  allergies: string;
+  hospitalName: string;
+  createdAt: string;
+}
+
 interface ShareRecord {
   id: string;
   createdAt: string;
@@ -19,6 +31,7 @@ interface ShareRecord {
   doctorDiagnosis?: string;
   meds?: ShareMedication[];
   facilityName?: string;
+  linkedIntakeForm?: ShareLinkedIntakeForm | null;
 }
 
 export interface SharePatient {

@@ -51,6 +51,20 @@ export function DoctorView({
         })
       : null;
 
+  // 처방에 연결된 문진표가 있으면 그걸 사용
+  const linkedForm = records.find((r) => r.linkedIntakeForm)?.linkedIntakeForm;
+  const effectiveQuestionnaire = linkedForm
+    ? {
+        hospitalName: linkedForm.hospitalName,
+        chiefComplaint: linkedForm.chiefComplaint,
+        symptomStart: linkedForm.symptomStart,
+        symptomProgress: linkedForm.symptomProgress,
+        medicationCompliance: linkedForm.medicationCompliance,
+        sideEffects: linkedForm.sideEffects,
+        allergies: linkedForm.allergies,
+      }
+    : questionnaireData;
+
   return (
     <div className="min-h-screen" style={{ background: COLORS.background }}>
       {/* Patient Info Header */}
@@ -71,8 +85,8 @@ export function DoctorView({
           }}
         >
           {/* Chief Complaint */}
-          {questionnaireData ? (
-            <ChiefComplaintSection questionnaireData={questionnaireData} />
+          {effectiveQuestionnaire ? (
+            <ChiefComplaintSection questionnaireData={effectiveQuestionnaire} />
           ) : (
             <div
               style={{
@@ -115,8 +129,8 @@ export function DoctorView({
           <CurrentMedicationsCard medications={currentMedications} />
 
           {/* Patient Notes */}
-          {questionnaireData?.patientNotes && (
-            <PatientNotesCard notes={questionnaireData.patientNotes} />
+          {effectiveQuestionnaire?.patientNotes && (
+            <PatientNotesCard notes={effectiveQuestionnaire.patientNotes} />
           )}
 
           {/* Disclaimer Footer */}

@@ -11,6 +11,18 @@ export interface Medication {
   confidence?: number;
 }
 
+export interface LinkedIntakeForm {
+  id: string;
+  chiefComplaint: string;
+  symptomStart: string;
+  symptomProgress: string;
+  medicationCompliance: string;
+  sideEffects: string;
+  allergies: string;
+  hospitalName: string;
+  createdAt: string;
+}
+
 export interface PrescriptionRecord {
   id: string;
   medications: Medication[];
@@ -24,6 +36,7 @@ export interface PrescriptionRecord {
   daysSupply?: number;
   dailyLog?: Record<string, boolean>;
   alarmTimes?: string[];
+  linkedIntakeForm?: LinkedIntakeForm | null;
 }
 
 

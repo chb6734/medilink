@@ -27,6 +27,7 @@ export function DoctorShare({ token }: { token: string }) {
         prescribedBy: r.facilityName ?? "",
         confidence: m.needsVerification ? 70 : undefined,
       })),
+      linkedIntakeForm: r.linkedIntakeForm ?? null,
     }));
   }, [data]);
 
