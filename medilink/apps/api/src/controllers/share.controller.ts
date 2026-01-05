@@ -184,6 +184,9 @@ export class ShareController {
               take: 100,
             },
             facility: true,
+            intakeForm: {
+              include: { facility: true },
+            },
           },
         }),
         prisma.intakeForm.findFirst({
@@ -470,6 +473,24 @@ export class ShareController {
           (r.ocrExtraction?.fieldsJson as any)?.geminiSummary ?? null,
         rawText: r.ocrExtraction?.rawText ?? null,
         facilityName: r.facility?.name ?? null,
+        // 연결된 문진표 정보
+        linkedIntakeForm: r.intakeForm
+          ? {
+              id: r.intakeForm.id,
+              chiefComplaint: r.intakeForm.chiefComplaint,
+              symptomStart: r.intakeForm.onsetText ?? '미입력',
+              symptomProgress: r.intakeForm.courseNote
+                ? `${courseToKorean(r.intakeForm.course)} - ${r.intakeForm.courseNote}`
+                : courseToKorean(r.intakeForm.course),
+              medicationCompliance: r.intakeForm.adherenceReason
+                ? `${adherenceToKorean(r.intakeForm.adherence)} - ${r.intakeForm.adherenceReason}`
+                : adherenceToKorean(r.intakeForm.adherence),
+              sideEffects: r.intakeForm.adverseEvents ?? '없음',
+              allergies: r.intakeForm.allergies ?? '없음',
+              hospitalName: r.intakeForm.facility?.name ?? '미지정',
+              createdAt: r.intakeForm.createdAt,
+            }
+          : null,
       })),
       questionnaire: latestIntakeForm
         ? {

@@ -293,6 +293,7 @@ export class RecordsService {
     prescribedAt?: string;
     dispensedAt?: string;
     daysSupply?: number;
+    intakeFormId?: string; // 연결된 문진표 ID
     medications: Array<{
       nameRaw: string;
       dose?: string;
@@ -350,6 +351,7 @@ export class RecordsService {
         data: {
           patientId: patient.id,
           facilityId,
+          intakeFormId: data.intakeFormId, // 연결된 문진표
           recordType: data.recordType,
           chiefComplaint: data.chiefComplaint,
           doctorDiagnosis: data.doctorDiagnosis,

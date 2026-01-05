@@ -303,6 +303,7 @@ export class RecordsController {
       prescribedAt: query.prescribedAt,
       dispensedAt: query.dispensedAt,
       daysSupply: query.daysSupply,
+      intakeFormId: query.intakeFormId,
       medications: finalMeds,
       ocrRawText: text,
       geminiSummary: geminiSummary ?? undefined,

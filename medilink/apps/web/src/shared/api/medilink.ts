@@ -58,6 +58,7 @@ export async function createRecord(params: {
     confidence?: number;
   }>;
   daysSupply?: number;
+  intakeFormId?: string;
 }) {
   const form = new FormData();
   form.append("file", params.file);
@@ -75,6 +76,7 @@ export async function createRecord(params: {
   if (params.dispensedAt) qs.set("dispensedAt", params.dispensedAt);
   if (params.medications) qs.set("medications", JSON.stringify(params.medications));
   if (params.daysSupply !== undefined) qs.set("daysSupply", String(params.daysSupply));
+  if (params.intakeFormId) qs.set("intakeFormId", params.intakeFormId);
 
   return await fetchForm<{ id: string }>(`/api/records?${qs.toString()}`, form);
 }

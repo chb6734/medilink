@@ -103,4 +103,8 @@ export class CreateRecordQueryDto {
   @Type(() => Number)
   @IsNumber()
   daysSupply?: number;
+
+  @IsOptional()
+  @IsUUID('4', { message: 'intakeFormId must be a valid UUID' })
+  intakeFormId?: string;
 }

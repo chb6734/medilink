@@ -606,6 +606,8 @@ export function QuickRecord({ onBack, onRecordSaved }: QuickRecordProps) {
             confidence: m.confidence ?? undefined,
           })),
           daysSupply: ocrResult.daysSupply,
+          // 연결된 문진표 ID
+          intakeFormId: selectedIntakeForm?.id,
         });
       } catch (e: any) {
         console.error("저장 실패:", e);

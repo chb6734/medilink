@@ -100,6 +100,9 @@ model PrescriptionRecord {
   facilityId    String?
   facility      Facility? @relation(fields: [facilityId], references: [id], onDelete: SetNull)
 
+  intakeFormId  String?
+  intakeForm    IntakeForm? @relation(fields: [intakeFormId], references: [id], onDelete: SetNull)
+
   recordType    RecordType
 
   chiefComplaint String?
@@ -120,6 +123,7 @@ model PrescriptionRecord {
   @@index([patientId, createdAt])
   @@index([chiefComplaint])
   @@index([completionDate])
+  @@index([intakeFormId])
 }
 
 model OcrExtraction {
@@ -173,6 +177,9 @@ model IntakeForm {
   adverseEvents  String?
   allergies      String?
   createdAt      DateTime @default(now())
+
+  // 이 문진표와 연결된 처방 기록들
+  linkedRecords  PrescriptionRecord[]
 
   @@index([patientId, createdAt])
   @@index([relatedRecordId])
