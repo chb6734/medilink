@@ -84,7 +84,26 @@ export default function DoctorPreviewPage() {
         if (summaryData) {
           setRecords(summaryData.records);
           setCurrentMedications(summaryData.currentMedications || []);
-          if (summaryData.intakeForms.length > 0) {
+
+          // 처방에 연결된 문진표가 있으면 그걸 우선 사용
+          const linkedForm = summaryData.records.find(
+            (r) => r.linkedIntakeForm
+          )?.linkedIntakeForm;
+
+          if (linkedForm) {
+            // 연결된 문진표 사용
+            setQuestionnaireData({
+              hospitalName: linkedForm.hospitalName || "",
+              chiefComplaint: linkedForm.chiefComplaint || "",
+              symptomStart: linkedForm.symptomStart || "",
+              symptomProgress: linkedForm.symptomProgress || "",
+              symptomDetail: "",
+              medicationCompliance: linkedForm.medicationCompliance || "",
+              sideEffects: linkedForm.sideEffects || "",
+              allergies: linkedForm.allergies || "",
+            });
+          } else if (summaryData.intakeForms.length > 0) {
+            // 연결된 문진표가 없으면 최근 문진표 사용
             const latestIntake = summaryData.intakeForms[0];
             setQuestionnaireData({
               hospitalName: summaryData.records[0]?.hospitalName || "",

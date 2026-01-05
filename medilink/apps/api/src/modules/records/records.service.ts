@@ -678,6 +678,9 @@ export class RecordsService {
             medItems: true,
             facility: true,
             ocrExtraction: true,
+            intakeForm: {
+              include: { facility: true },
+            },
           },
           orderBy: { createdAt: 'desc' },
           take: 20,
@@ -973,6 +976,24 @@ export class RecordsService {
           confidence: m.confidence || undefined,
         })),
         ocrConfidence: r.ocrExtraction?.overallConfidence || undefined,
+        // 연결된 문진표 정보
+        linkedIntakeForm: r.intakeForm
+          ? {
+              id: r.intakeForm.id,
+              chiefComplaint: r.intakeForm.chiefComplaint,
+              symptomStart: r.intakeForm.onsetText ?? '미입력',
+              symptomProgress: r.intakeForm.courseNote
+                ? `${courseToKorean(r.intakeForm.course)} - ${r.intakeForm.courseNote}`
+                : courseToKorean(r.intakeForm.course),
+              medicationCompliance: r.intakeForm.adherenceReason
+                ? `${adherenceToKorean(r.intakeForm.adherence)} - ${r.intakeForm.adherenceReason}`
+                : adherenceToKorean(r.intakeForm.adherence),
+              sideEffects: r.intakeForm.adverseEvents ?? '없음',
+              allergies: r.intakeForm.allergies ?? '없음',
+              hospitalName: r.intakeForm.facility?.name ?? '미지정',
+              createdAt: r.intakeForm.createdAt.toISOString(),
+            }
+          : null,
       })),
       intakeForms: intakeForms.map((f) => ({
         id: f.id,

@@ -234,6 +234,17 @@ export async function getDoctorSummary(params: { patientId: string }) {
         confidence?: number;
       }>;
       ocrConfidence?: number;
+      linkedIntakeForm?: {
+        id: string;
+        chiefComplaint: string;
+        symptomStart: string;
+        symptomProgress: string;
+        medicationCompliance: string;
+        sideEffects: string;
+        allergies: string;
+        hospitalName: string;
+        createdAt: string;
+      } | null;
     }>;
     intakeForms: Array<{
       id: string;
